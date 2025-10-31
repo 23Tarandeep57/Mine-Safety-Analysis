@@ -96,11 +96,14 @@ def _derive_report_id(text: str, title: str) -> str:
 
 
 def _extract_mine_fields(lines: list[str]) -> dict:
-    def find_val(key_regex):
+    def find_val(key_regex: str) -> str:
+        # Ensure alternations are grouped so the value pattern applies to all alternatives
+        pattern = rf"(?:{key_regex})\s*[:\-–]\s*(.+)"
         for ln in lines:
-            m = re.search(key_regex + r"\s*[:\-–]\s*(.+)", ln, re.IGNORECASE)
+            m = re.search(pattern, ln, re.IGNORECASE)
             if m:
-                return m.group(1).strip()
+                val = m.group(1) if m.lastindex and m.group(1) is not None else ""
+                return val.strip() if isinstance(val, str) else ""
         return ""
 
     name = find_val(r"name\s*of\s*mine|mine\s*name")

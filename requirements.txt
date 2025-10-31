@@ -1,0 +1,10 @@
+langchain 
+langchain-community 
+langchain-text-splitters 
+pypdf 
+pdfplumber 
+pytesseract 
+pillow
+transformers 
+sentence-transformers 
+torch

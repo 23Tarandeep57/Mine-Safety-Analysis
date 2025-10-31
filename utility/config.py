@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-USER_AGENT = os.environ.get("USER_AGENT", "MineSafetyAgent/1.0 (contact: you@example.com)")
+USER_AGENT = os.environ.get("USER_AGENT", "MineSafetyAgent/1.0 (contact: deeptaran2004bti@gmail.com)")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 SUMMARIZER = os.environ.get("SUMMARIZER")

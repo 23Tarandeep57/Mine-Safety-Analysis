@@ -11,7 +11,7 @@ load_dotenv()
 API_KEY = os.getenv("WEATHER_API_KEY")
 
 if not API_KEY:
-    raise ValueError("❌ Missing WEATHER_API_KEY in .env file!")
+    raise ValueError(" Missing WEATHER_API_KEY in .env file!")
 
 INDIAN_STATES = {
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -43,7 +43,7 @@ def extract_mine_data(image_path):
                 continue 
             mines.append({"mine": mine})
 
-    print(f"✅ Extracted {len(mines)} mine entries from image.\n")
+    print(f"Extracted {len(mines)} mine entries from image.\n")
     return mines
 
 
@@ -159,7 +159,7 @@ def monitor_mine_data():
 
 # --- STEP 5: Real-Time Simulation (optional) ---
 def live_monitoring(interval=2, total_cycles=10):
-    print("🟢 Starting Live Mine Safety Monitoring...\n")
+    print("Starting Live Mine Safety Monitoring...\n")
     for i in range(total_cycles):
         reading = generate_sensor_data(1)
         row = reading.iloc[0]

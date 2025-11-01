@@ -11,3 +11,4 @@ scipy>=1.11
 scikit-learn>=1.4.0
 sentence-transformers>=2.2.2
 hdbscan>=0.8.33
+duckduckgo-search

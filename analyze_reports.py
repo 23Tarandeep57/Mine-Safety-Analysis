@@ -6,7 +6,7 @@ from utility.analysis import make_advanced_report, render_narrative
 
 
 def main():
-    months = int(os.environ.get("ANALYSIS_MONTHS", "6"))
+    months = int(os.environ.get("ANALYSIS_MONTHS", "12"))
     output_path = os.environ.get("ANALYSIS_OUTPUT", str(DATA_DIR / "analysis_report_advanced.md"))
     k = int(os.environ.get("ANALYSIS_CLUSTERS", "5"))
     clustering = os.environ.get("ANALYSIS_CLUSTERING", "kmeans")  # or "hdbscan"

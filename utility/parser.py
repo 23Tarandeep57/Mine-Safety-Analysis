@@ -219,6 +219,7 @@ def parse_report_to_schema_llm(text: str, source_url: str, title: str) -> dict |
         f"Title: {title}\n\nReport text:\n{text[:6000]}\n"
     )
     try:
+        print("Using LLM for extraction...")
         llm = get_llm()
         resp = llm.invoke([
             {"role": "system", "content": system},

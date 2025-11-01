@@ -56,5 +56,4 @@ coverage.xml
 Thumbs.db
 
 # Project data outputs
-data/*.json
-!data/.gitkeep
+data/

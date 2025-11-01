@@ -17,12 +17,10 @@ class GenerateSafetyAlertsTool:
             resp = self.llm.invoke(prompt)
             content = resp.content if hasattr(resp, "content") else str(resp)
             
-            # Find the start and end of the JSON array
-            start_index = content.find('[')
-            end_index = content.rfind(']')
-            
-            if start_index != -1 and end_index != -1:
-                json_str = content[start_index : end_index + 1]
+            # Use a non-greedy regex to find the first JSON array
+            match = re.search(r'\[.*?\]', content, re.DOTALL)
+            if match:
+                json_str = match.group(0)
                 alerts = json.loads(json_str)
                 print(f"Generated {len(alerts)} safety alerts.")
                 return alerts

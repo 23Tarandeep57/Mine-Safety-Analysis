@@ -9,6 +9,9 @@ from utility.tools.collect_dgms_report import CollectDGMSReportTool
 from utility.tools.verify_report_with_news import VerifyReportWithNewsTool
 from utility.tools.analyze_incident_patterns import AnalyzeIncidentPatternsTool
 from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
+from utility.tools.generate_audit_report import GenerateAuditReportTool
+from utility.config import DATA_DIR
+import json
 
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Annotated, List
@@ -40,6 +43,7 @@ class IncidentAnalysisAgent(Agent):
         self.verify_tool = VerifyReportWithNewsTool()
         self.analyze_patterns_tool = AnalyzeIncidentPatternsTool()
         self.generate_alerts_tool = GenerateSafetyAlertsTool()
+        self.generate_audit_tool = GenerateAuditReportTool()
         self.news_article_graph = self._build_news_article_graph()
         self.dgms_report_graph = self._build_dgms_report_graph()
         self.subscribe("new_news_article", self.handle_news_article)
@@ -161,13 +165,39 @@ class IncidentAnalysisAgent(Agent):
             analysis_report = self.analyze_patterns_tool.use()
             print(f"[{self.name}] Analysis Report: {analysis_report[:200]}...")
             if analysis_report and "Error" not in analysis_report:
+                # Save raw analysis report
+                analysis_filename = f"analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                analysis_path = DATA_DIR / analysis_filename
+                with open(analysis_path, "w", encoding="utf-8") as f:
+                    f.write(analysis_report)
+                print(f"[{self.name}] Raw analysis report saved to {analysis_path}")
+                await self.publish("analysis_report_saved", {"report_path": str(analysis_path)})
+
                 alerts = self.generate_alerts_tool.use(analysis_report)
-                for alert in alerts:
-                    print(f"[{self.name}] Generated Alert: {alert}")
-                    await self.publish("safety_alert", {"alert_message": alert})
+                if alerts:
+                    # Save generated alerts
+                    alerts_filename = f"safety_alerts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    alerts_path = DATA_DIR / alerts_filename
+                    with open(alerts_path, "w", encoding="utf-8") as f:
+                        json.dump(alerts, f, ensure_ascii=False, indent=2)
+                    print(f"[{self.name}] Safety alerts saved to {alerts_path}")
+                    await self.publish("safety_alerts_saved", {"alerts_path": str(alerts_path)})
+
+                    for alert in alerts:
+                        print(f"[{self.name}] Generated Alert: {alert}")
+                        await self.publish("safety_alert", {"alert_message": alert})
             await asyncio.sleep(3600) # Run analysis every hour
+
+    async def _run_periodic_report_generation(self):
+        while self.running:
+            print(f"[{self.name}] Running periodic audit report generation...")
+            report_path = self.generate_audit_tool.use()
+            print(f"[{self.name}] Audit Report: {report_path}")
+            await self.publish("audit_report_generated", {"report_path": report_path})
+            await asyncio.sleep(86400) # Generate report every 24 hours
 
     async def run(self):
         asyncio.create_task(self._run_periodic_analysis())
+        asyncio.create_task(self._run_periodic_report_generation())
         while self.running:
             await asyncio.sleep(1) # Keep agent alive

@@ -14,4 +14,8 @@ langchain-core
 langchain-community 
 langgraph
 
+# Web Framework
+Flask
+Flask-Cors
+
 # tesseract is a python wrapper

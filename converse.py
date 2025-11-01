@@ -3,7 +3,7 @@ import sys
 import pymongo
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_chroma import Chroma # <-- 1. Correct import
+from langchain_chroma import Chroma  # <-- 1. Correct import
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
@@ -11,15 +11,16 @@ from langchain_core.output_parsers import StrOutputParser
 # -------------------- CONFIG --------------------
 # --- Chroma Config ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PERSIST_DIRECTORY = os.path.join(SCRIPT_DIR, "chroma_db") # <-- 2. Absolute path
+PERSIST_DIRECTORY = os.path.join(SCRIPT_DIR, "chroma_db")  # <-- 2. Absolute path
 EMBEDDING_MODEL = "models/text-embedding-004"
 LLM_MODEL = "models/gemini-pro-latest"
 
 # --- MongoDB Config ---
 load_dotenv()
 MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
-MONGO_DB_NAME = "mines_safety"             # <-- !! UPDATE THIS !!
-MONGO_COLLECTION_NAME = "dgms_reports" # <-- !! UPDATE THIS !!
+# --- !! UPDATE THESE 2 LINES !! ---
+MONGO_DB_NAME = "mines_safety"
+MONGO_COLLECTION_NAME = "dgms_reports"
 # ------------------------------------------------
 
 # --- System Prompts ---
@@ -31,9 +32,10 @@ CONTEXTUALIZE_Q_SYSTEM_PROMPT = (
     "just reformulate it if needed and otherwise return it as is."
 )
 
+# <-- 3. Updated Prompt with Cause Code Task
 QA_SYSTEM_PROMPT = (
     "You are a 'Digital Mine Safety Officer,' an expert AI assistant. "
-    "Your knowledge base consists of Indian mining accident records from DGMS (including Coal 2016-2022 and Non-Coal 2015) " # <-- Updated scope
+    "Your knowledge base consists of Indian mining accident records (DGMS 2016-2022, Non-Coal 2015) "
     "AND real-time data from a live database."
     
     "You must use ONLY the following pieces of retrieved context to answer the user's question. "
@@ -46,7 +48,6 @@ QA_SYSTEM_PROMPT = (
     "1. Answer specific queries about accident details, locations, timelines, types, and machinery involved. "
     "2. Identify and highlight potential safety hazards, trends, or patterns. "
     "3. Suggest potential root causes for incidents ('Had...' statements) if they are mentioned in the text. "
-    
     "4. **CRITICAL TASK: When you describe an accident or a general cause (like 'Fall of Roof' or 'Dumpers'),**"
     "   **you MUST check the context for an associated 'Cause Code' (e.g., Code: 0111, Code: 0335).**"
     "   **If a code is present, include it in your answer in parentheses, like this: Fall of Roof (Code: 0111).**"
@@ -67,7 +68,7 @@ def load_api_key():
     return api_key
 
 def initialize_components(api_key, persist_directory):
-    """Initializes and returns the LLM, retriever, and MongoDB collection."""
+    """Initializes and returns the LLM, vector_store, and MongoDB collection."""
     
     if not os.path.exists(persist_directory):
         print(f"Error: Chroma DB directory not found at {persist_directory}")
@@ -89,29 +90,22 @@ def initialize_components(api_key, persist_directory):
         embedding_function=embeddings
     )
     
-    # --- 3. Use MMR Retriever ---
-    retriever = vector_store.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 20} # Returns 5 best docs
-    )
-    
-    # --- 4. Initialize MongoDB Client ---
+    # --- Initialize MongoDB Client ---
     try:
         if not MONGO_CONNECTION_STRING:
             print("Error: MONGO_CONNECTION_STRING not found in .env file.")
             sys.exit(1)
         
         mongo_client = pymongo.MongoClient(MONGO_CONNECTION_STRING)
-        # Ping server to verify connection
         mongo_client.admin.command('ping') 
         mongo_db = mongo_client[MONGO_DB_NAME]
         mongo_collection = mongo_db[MONGO_COLLECTION_NAME]
         print("--- Components Initialized (Chroma & MongoDB) ---")
-        return llm, retriever, mongo_collection
+        # <-- 4. Return vector_store directly for scoring
+        return llm, vector_store, mongo_collection
     except Exception as e:
         print(f"Error connecting to MongoDB: {e}")
         sys.exit(1)
-    # ---------------------------------
 
 def create_manual_chains(llm):
     """Creates the two simple chains for re-writing and answering questions."""
@@ -145,10 +139,12 @@ def retrieve_from_mongodb(collection, query_text: str, k: int = 3) -> list[str]:
     """
     Retrieves the top k relevant documents from MongoDB as formatted strings.
     """
+    # <-- 5. Corrected 'is not None' check
     if collection is None:
+        print("MongoDB collection is not initialized.")
         return []
+        
     try:
-        # Use $text search on the compound index
         results = collection.find(
             {"$text": {"$search": query_text}},
             {"score": {"$meta": "textScore"}}
@@ -173,7 +169,7 @@ Source: {doc.get('source_url')}
         print(f"Error querying MongoDB: {e}")
         return []
 
-def start_chat_session(llm, retriever, mongo_collection, contextualize_q_chain, qa_chain):
+def start_chat_session(llm, vector_store, mongo_collection, contextualize_q_chain, qa_chain):
     """Starts the interactive chat loop with the user."""
     
     print("--- Chatbot is ready. Type 'exit' to quit. ---")
@@ -197,7 +193,19 @@ def start_chat_session(llm, retriever, mongo_collection, contextualize_q_chain, 
                 standalone_question = query
             
             print(f"[DEBUG] Retrieving from ChromaDB (PDFs)...")
-            chroma_docs = retriever.invoke(standalone_question)
+
+            # --- 6. Call Chroma for Docs & Scores ---
+            scored_chroma_docs = vector_store.similarity_search_with_relevance_scores(
+                standalone_question, 
+                k=5 # Get top 5
+            )
+            
+            chroma_docs = []
+            top_chroma_score = 0.0
+            if scored_chroma_docs:
+                top_chroma_score = scored_chroma_docs[0][1] # Get score of best doc
+                chroma_docs = [doc for doc, score in scored_chroma_docs]
+            # --- End of Change ---
             
             print(f"[DEBUG] Retrieving from MongoDB (Real-time)...")
             mongo_contexts = retrieve_from_mongodb(mongo_collection, standalone_question, k=3)
@@ -210,7 +218,6 @@ def start_chat_session(llm, retriever, mongo_collection, contextualize_q_chain, 
                 f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
                 f"--- Real-time Data (Live) ---\n{mongo_context_str}"
             )
-            # ---------------------------
             
             answer = qa_chain.invoke({
                 "input": query,
@@ -218,7 +225,9 @@ def start_chat_session(llm, retriever, mongo_collection, contextualize_q_chain, 
                 "context": combined_context
             })
             
-            print(f"Chatbot: {answer}")
+            # --- 7. Print Answer with Confidence Score ---
+            confidence_percent = top_chroma_score * 100 
+            print(f"Chatbot (Context Confidence: {confidence_percent:.1f}%): {answer}")
             
             chat_history.append(HumanMessage(content=query))
             chat_history.append(AIMessage(content=answer))
@@ -231,9 +240,10 @@ def main():
     """Main function to run the chatbot."""
     try:
         api_key = load_api_key()
-        llm, retriever, mongo_collection = initialize_components(api_key, PERSIST_DIRECTORY)
+        # <-- 8. Pass vector_store
+        llm, vector_store, mongo_collection = initialize_components(api_key, PERSIST_DIRECTORY)
         contextualize_q_chain, qa_chain = create_manual_chains(llm)
-        start_chat_session(llm, retriever, mongo_collection, contextualize_q_chain, qa_chain)
+        start_chat_session(llm, vector_store, mongo_collection, contextualize_q_chain, qa_chain)
     
     except Exception as e:
         print(f"A critical error occurred: {e}")

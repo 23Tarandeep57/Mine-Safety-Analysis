@@ -1,55 +1,104 @@
-import requests
-from dotenv import load_dotenv
 import os
+import time
+import requests
+import pytesseract
+from dotenv import load_dotenv
+from PIL import Image
+import random 
+import pandas as pd 
 
-# --- Load environment variables ---
 load_dotenv()
 API_KEY = os.getenv("WEATHER_API_KEY")
 
 if not API_KEY:
     raise ValueError("❌ Missing WEATHER_API_KEY in .env file!")
 
+INDIAN_STATES = {
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
+    "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+    "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+    "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi",
+    "Jammu and Kashmir"
+}
+
+
+def extract_mine_data(image_path):
+    """
+    Uses pytesseract OCR to extract 'Mine' and 'State' pairs from the image.
+    """
+    image = Image.open(image_path)
+    raw_text = pytesseract.image_to_string(image)
+    print("raw_text: ",raw_text)
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    #print("lines: ",lines)
+    mines = []
+    current_mine = None
+
+    for i in range(0, len(lines), 1):
+        if i < len(lines):
+            mine = lines[i]
+            if mine in INDIAN_STATES:
+                continue 
+            mines.append({"mine": mine})
+
+    print(f"✅ Extracted {len(mines)} mine entries from image.\n")
+    return mines
+
+
 def get_weather(city):
     url = "https://api.weatherapi.com/v1/current.json"
-    params = {
-        "key": API_KEY,
-        "q": city,
-        "aqi": "no"
-    }
+    query = f"{city},India"
+    params = {"key": API_KEY, "q": query, "aqi": "no"}
 
-    r = requests.get(url, params=params)
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
 
-    # --- Handle HTTP errors ---
-    if r.status_code != 200:
-        print(f"❌ API Error {r.status_code}: {r.text}")
+        if "location" not in data or "current" not in data:
+            print(f"⚠️ Unexpected response for {city}: {data}")
+            return None
+
+        loc = data["location"]["name"]
+        temp = data["current"]["temp_c"]
+        condition = data["current"]["condition"]["text"]
+        humidity = data["current"]["humidity"]
+
+        return {
+            "Mine": city,
+            "Location": loc,
+            "Temperature (°C)": temp,
+            "Condition": condition,
+            "Humidity (%)": humidity
+        }
+
+    except Exception as e:
+        print(f"Error fetching weather for {city}: {e}")
         return None
 
-    data = r.json()
 
-    # --- Check for expected structure ---
-    if "location" not in data or "current" not in data:
-        print("⚠️ Unexpected response format:", data)
-        return None
+def get_weather_for_all(image_path):
+    mines = extract_mine_data(image_path)
+    all_weather = []
+    print("Fetching weather for all extracted mines...\n")
+    for mine in mines:
+        city = mine["mine"]
+        print(f"🔍 {city}")
+        weather = get_weather(city)
+        if weather:
+            all_weather.append(weather)
+        time.sleep(1)
 
-    location = data["location"]["name"]
-    region = data["location"]["region"]
-    country = data["location"]["country"]
-    temp_c = data["current"]["temp_c"]
-    condition = data["current"]["condition"]["text"]
-    humidity = data["current"]["humidity"]
+    print("\n---Mine Weather Report ---\n")
+    for w in all_weather:
+        print(f"{w['Mine']}) → {w['Condition']}, "
+              f"{w['Temperature (°C)']}°C, Humidity: {w['Humidity (%)']}%")
 
-    print(f"🌦️ Weather in {location}, {region}, {country}:")
-    print(f"   Condition: {condition}")
-    print(f"   Temperature: {temp_c}°C")
-    print(f"   Humidity: {humidity}%")
-
-# --- Example ---
-get_weather("Dhanbad")
+    return all_weather
 
 
-import random
-import pandas as pd
-import time
 
 # --- STEP 1: Create Dummy Sensor Data ---
 def generate_sensor_data(n=50):
@@ -121,6 +170,8 @@ def live_monitoring(interval=2, total_cycles=10):
         time.sleep(interval)
 
 if __name__ == "__main__":
+    IMAGE_PATH = r"/Users/ajaypillai/Desktop/mine_agent/Screenshot 2025-11-01 at 9.09.13 AM.png"  
+    get_weather_for_all(IMAGE_PATH)
     monitor_mine_data()
 
     print("\n---------------------------------------------\n")

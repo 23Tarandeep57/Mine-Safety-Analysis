@@ -245,6 +245,8 @@ def parse_report_to_schema_llm(text: str, source_url: str, title: str) -> dict |
         data.setdefault("mine_details", {"name": "", "owner": "", "district": "", "state": "", "mineral": ""})
         data.setdefault("incident_details", {"location": "", "fatalities": [], "injuries": [], "brief_cause": ""})
         data.setdefault("best_practices", [])
+        data["_raw_title"] = title
+        data["_raw_text"] = text[:6000]
         return data
     except Exception:
         return None

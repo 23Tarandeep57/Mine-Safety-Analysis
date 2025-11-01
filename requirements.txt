@@ -1,0 +1,17 @@
+# Core utilities
+python-dotenv
+requests
+pandas
+Pillow
+pytesseract
+beautifulsoup4
+tavily
+
+# LangChain + Groq integration
+langchain
+langchain-groq
+langchain-core
+langchain-community 
+langgraph
+
+# tesseract is a python wrapper

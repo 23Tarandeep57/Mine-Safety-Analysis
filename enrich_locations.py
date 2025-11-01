@@ -168,7 +168,7 @@ def enrich_one(coll, doc: dict, dry_run: bool = False, verbose: bool = False) ->
         print(f"  → Mongo update failed: {e}")
         return False
 
-def main():
+def enrich_all_locations():
     limit = int(os.environ.get("ENRICH_LIMIT", "40"))
     dry_run = os.environ.get("ENRICH_DRY_RUN", "false").lower() in ("1", "true", "yes")
     verbose = os.environ.get("ENRICH_VERBOSE", "false").lower() in ("1", "true", "yes")
@@ -187,6 +187,9 @@ def main():
             updated_count += 1
             
     print(f"Done. Updated {updated_count}/{len(docs)} documents.")
+
+def main():
+    enrich_all_locations()
 
 if __name__ == "__main__":
     main()

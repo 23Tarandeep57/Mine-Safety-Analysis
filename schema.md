@@ -89,7 +89,9 @@ Notes:
 // db.dgms_reports.createIndex({ report_id: 1 }, { unique: true })
 ```
 
-## Example Document
+## DGMS Report Schema
+
+This document outlines the JSON schema for the parsed DGMS fatal accident reports.
 
 ```json
 {
@@ -97,34 +99,40 @@ Notes:
   "date_reported": "2025-08-22",
   "accident_date": "2025-07-23T02:15:00",
   "mine_details": {
-    "name": "Gevra Opencast Mine",
-    "owner": "M/s S.E.C.Ltd.",
-    "district": "Korba",
-    "state": "Chhattisgarh",
+    "name": "ABC Mine",
+    "owner": "XYZ Corp",
+    "district": "Singrauli",
+    "state": "Madhya Pradesh",
     "mineral": "Coal"
   },
   "incident_details": {
-    "location": "Haul Road (NIT-522 Naraibodh OB Patch), Gevra Project of M/s SECL",
+    "location": "Near the main shaft",
     "fatalities": [
       {
-        "name": "Shri Rajan Rana Magar",
-        "designation": "Driller’s Helper",
-        "age": 25,
-        "experience": "2 months"
+        "name": "John Doe",
+        "designation": "Miner",
+        "age": 45,
+        "experience": "20 years"
       }
     ],
     "injuries": [],
-    "brief_cause": "A contractual workman (Driller’s helper), while trying to cross a haul road in an opencast coal mine, was hit by an empty truck and later succumbed during treatment."
+    "brief_cause": "Fall of roof in the underground mine."
   },
   "best_practices": [
-    "Pedestrians shall not be allowed to travel on the haul roads made for trucks, tippers and dumpers or other mobile machinery.",
-    "A designated place shall be provided on haul roads for crossing.",
-    "Crossing of haul roads, if required, may be done only by conveyance vehicles at the designated places."
+    "Ensure proper roof support.",
+    "Conduct regular geological surveys."
   ],
-  "source_url": "https://www.dgms.gov.in/.../Fatal_Accident_Gevra_2025.pdf",
-  "summary": "",
-  "created_at": "2025-10-31T19:35:00Z",
-  "_raw_title": "SAFETY ALERT : 21/2025 ...",
-  "_raw_text": "..."
+  "source_url": "https://www.dgms.gov.in/path/to/report.pdf",
+  "summary": "A summary of the report.",
+  "created_at": "2025-11-01T12:00:00Z",
+  "verification": {
+    "status": "verified",
+    "timestamp": "2025-11-01T12:00:00Z",
+    "articles": [
+      "https://www.example.com/news/article1"
+    ]
+  },
+  "_raw_title": "Fatal accident at ABC Mine",
+  "_raw_text": "The full text of the report."
 }
 ```

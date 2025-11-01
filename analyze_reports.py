@@ -5,7 +5,7 @@ from utility.config import MONGODB_URI, MONGODB_DB, MONGODB_COLLECTION, DATA_DIR
 from utility.analysis import make_advanced_report, render_narrative
 
 
-def main():
+def analyze_all_reports():
     months = int(os.environ.get("ANALYSIS_MONTHS", "12"))
     output_path = os.environ.get("ANALYSIS_OUTPUT", str(DATA_DIR / "analysis_report_advanced.md"))
     k = int(os.environ.get("ANALYSIS_CLUSTERS", "5"))
@@ -32,6 +32,10 @@ def main():
         f.write(md)
 
     print(f"Advanced analysis report written to {output_path}")
+
+
+def main():
+    analyze_all_reports()
 
 
 if __name__ == "__main__":

@@ -1,68 +1,80 @@
 # DGMS Fatal Accident Patterns (Last 6 Months)
-Period: 2025-05-21 to 2025-12-03
-Total incidents: 8
+Period: 2024-11-18 to 2025-12-03
+Total incidents: 21
 
 ## Clustered Themes
 
 ## Causes
-- unknown: 3
-- vehicle_collision: 2
+- unknown: 9
+- vehicle_collision: 5
+- fall_other: 3
+- fall_of_ground: 2
 - electrocution: 1
-- fall_of_ground: 1
 - conveyor_machinery: 1
 
 ## States
-- Chhattisgarh: 2
+- Chhattisgarh: 4
+- Jharkhand: 3
+- Karnataka: 2
+- Odisha: 2
+- West Bengal: 2
 - Andhra Pradesh: 1
-- Jharkhand: 1
-- Odisha: 1
 - Rajasthan: 1
+- Gujarat: 1
 - Madhya Pradesh: 1
-- Assam: 1
+- Maharashtra: 1
 
 ## Districts
 - Korba: 2
 - Prakasam: 1
+- Kolar: 1
+- Tumkur: 1
 - West Singhbhum: 1
 - Angul: 1
 - Rajsamand: 1
-- Betul: 1
-- Jorhat: 1
+- Sundargarh: 1
+- Korea: 1
+- Gandhinagar: 1
 
 ## Minerals
-- Coal: 4
+- Coal: 11
+- Building Stone: 2
 - Granite: 1
 - Iron Ore: 1
 - Lead & Zinc: 1
+- Oil & Gas: 1
+- Manganese: 1
 - Oil and Gas: 1
+- COAL BED METHANE (CBM): 1
+- Stone: 1
 
 ## Seasons
+- summer: 10
 - monsoon: 5
-- summer: 2
-- winter: 1
+- winter: 5
+- post-monsoon: 1
 
 ## Time of Day
-- 12:00–17:59: 4
-- 00:00–05:59: 2
-- 06:00–11:59: 2
+- 12:00–17:59: 8
+- 06:00–11:59: 7
+- 00:00–05:59: 3
+- 18:00–23:59: 3
 
 
 ## AI Narrative
-**Safety Analytics Summary: DGMS Fatal Accident Patterns (Last 6 Months)**
+**Safety Analytics Report for the Next Quarter**
 
-Based on the data, the following regional trends, common causes, and prioritized safety recommendations are identified:
+Based on the data analysis, the following regional trends, common causes, and prioritized safety recommendations are identified:
 
-* **High-Risk Regions:** Chhattisgarh (2 incidents) and Korba district (2 incidents) are identified as high-risk areas, with a significant proportion of accidents occurring during the monsoon season (5 incidents).
-* **Mineral-Specific Risks:** Coal mining is the most hazardous activity, accounting for 4 out of 8 incidents. This highlights the need for enhanced safety protocols and training for coal mining operations.
-* **Vehicle Collisions:** Two incidents were attributed to vehicle collisions, indicating a need for improved transportation safety measures, such as regular vehicle maintenance and driver training.
-* **Electrocution and Fall of Ground:** These causes are relatively rare (1 incident each), but their occurrence emphasizes the importance of regular equipment inspections and adherence to safety guidelines.
-* **Night Shift Accidents:** Two incidents occurred during the night shift (00:00–05:59), suggesting that additional safety measures, such as enhanced lighting and increased supervision, may be necessary to mitigate risks during this period.
-* **Summer and Monsoon Season Risks:** The majority of incidents (7 out of 8) occurred during the monsoon or summer seasons, which may be attributed to increased water-related hazards and heat stress.
-* **Prioritized Recommendations:**
-	+ Enhance safety protocols and training for coal mining operations in Chhattisgarh and Korba district.
-	+ Implement improved transportation safety measures, including regular vehicle maintenance and driver training.
-	+ Conduct regular equipment inspections and adhere to safety guidelines to prevent electrocution and fall of ground incidents.
-	+ Increase supervision and implement enhanced lighting during night shifts.
-	+ Develop and implement seasonal safety plans to mitigate risks associated with monsoon and summer seasons.
-	+ Conduct a thorough review of conveyor machinery safety procedures to prevent similar incidents in the future.
-	+ Provide additional training and resources to address the unique challenges posed by lead and zinc mining operations.
+* **High-Risk States:** Chhattisgarh and Jharkhand have the highest number of incidents, with 4 and 3 incidents respectively. These states should be prioritized for targeted safety interventions.
+* **Coal Mining Hotspots:** Coal mining is the most common mineral involved in incidents, with 11 out of 21 incidents. This highlights the need for enhanced safety measures in coal mines, particularly in Chhattisgarh and Jharkhand.
+* **Summer Season Risks:** The majority of incidents (10 out of 21) occurred during the summer season. This suggests that heat-related hazards and fatigue may be contributing factors.
+* **Vehicle Collisions:** Vehicle collisions are the second most common cause of incidents, with 5 out of 21 incidents. This indicates a need for improved transportation safety protocols, particularly during the summer season.
+* **Unknown Causes:** 9 out of 21 incidents had unknown causes, which highlights the need for improved incident reporting and investigation processes.
+* **Time of Day:** The majority of incidents (15 out of 21) occurred during the day (06:00–17:59), with a peak between 12:00–17:59. This suggests that fatigue and distractions may be contributing factors.
+* **District-Specific Risks:** Korba and Prakasam districts have the highest number of incidents, with 2 and 1 incidents respectively. These districts should be prioritized for targeted safety interventions.
+* **Mineral-Specific Risks:** Coal mining and building stone extraction are the most common minerals involved in incidents. This highlights the need for enhanced safety measures in these sectors.
+* **Recommendation 1:** Implement heat-related hazard mitigation measures in coal mines, particularly in Chhattisgarh and Jharkhand, to reduce the risk of summer-related incidents.
+* **Recommendation 2:** Develop and implement improved transportation safety protocols to reduce the risk of vehicle collisions, particularly during the summer season.
+* **Recommendation 3:** Enhance incident reporting and investigation processes to reduce the number of incidents with unknown causes.
+* **Recommendation 4:** Conduct targeted safety interventions in Korba and Prakasam districts to reduce the risk of incidents in these areas.

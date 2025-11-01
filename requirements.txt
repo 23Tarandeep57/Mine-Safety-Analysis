@@ -19,3 +19,12 @@ Flask
 Flask-Cors
 
 # tesseract is a python wrapper
+
+langchain-text-splitters 
+pypdf 
+pdfplumber 
+pillow
+transformers 
+sentence-transformers 
+torch
+

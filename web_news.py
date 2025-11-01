@@ -12,7 +12,7 @@ load_dotenv()
 os.environ["TAVILY_API_KEY"] = os.getenv("TAVILY_API_KEY")
 os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
-# --- Initialize Tavily client ---
+
 client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
 
@@ -27,7 +27,7 @@ def tavily_search(query, max_results=10):
         )
         return response.get("results", [])
     except Exception as e:
-        print(f"❌ Tavily API Error: {e}")
+        print(f"Tavily API Error: {e}")
         return []
 
 
@@ -38,20 +38,18 @@ def fetch_article_text(url):
         r = requests.get(url, headers=headers, timeout=10)
         r.raise_for_status()
     except Exception as e:
-        print(f"❌ Error fetching {url}: {e}")
+        print(f"Error fetching {url}: {e}")
         return ""
 
-    # Skip Facebook links or very short pages
+
     if "facebook.com" in url or len(r.text) < 2000:
-        print("⚠️ Skipping non-article or short page:", url)
+        print("Skipping non-article or short page:", url)
         return ""
-
-    # Parse and extract <p> tags
+    
     soup = BeautifulSoup(r.text, "html.parser")
     paragraphs = soup.find_all("p")
     text = " ".join(p.get_text(strip=True) for p in paragraphs)
     return text if len(text) > 500 else ""
-
 
 def summarize_text(article_text):
     """Summarize an article into key bullet points."""
@@ -77,8 +75,47 @@ def summarize_text(article_text):
     response = llm.invoke(formatted_prompt)
     return response.content.strip() if hasattr(response, "content") else str(response).strip()
 
+
+def is_duplicate_article_llm(new_article, existing_articles):
+    """
+    Use an LLM to check if a new article describes the same event
+    as any existing article. Returns True if duplicate.
+    """
+    if not existing_articles:
+        return False
+    llm = ChatGroq(
+        api_key=os.environ["GROQ_API_KEY"],
+        model="llama-3.3-70b-versatile",
+        temperature=0
+    )
+    for existing in existing_articles:
+        prompt = PromptTemplate(
+            input_variables=["title1", "summary1", "title2", "summary2"],
+            template=(
+                "You are an expert news analyst.\n"
+                "Determine whether the two news reports below describe the SAME real-world event.\n\n"
+                "Article 1:\nTitle: {title1}\n\n"
+                "Article 2:\nTitle: {title2}\n\n"
+                "Answer strictly with one word: 'YES' if they are about the same incident, otherwise 'NO'."
+            )
+        )
+        formatted = prompt.format(
+            title1=new_article["title"],
+            summary1=new_article.get("summary", ""),
+            title2=existing["title"],
+            summary2=existing.get("summary", "")
+        )
+        response = llm.invoke(formatted)
+        answer = response.content.strip().upper() if hasattr(response, "content") else str(response).strip().upper()
+        if "YES" in answer:
+            print(f"🤖 LLM detected duplicate between:\n - '{new_article['title']}'\n - '{existing['title']}'")
+            return True
+
+    return False
+
+
 def get_valid_articles(query, desired_count=5):
-    """Fetch and summarize valid news articles until desired_count is reached."""
+    """Fetch and summarize valid, unique news articles."""
     all_results = []
     seen_urls = set()
     attempts = 0
@@ -89,7 +126,7 @@ def get_valid_articles(query, desired_count=5):
 
         results = tavily_search(query, max_results=10)
         if not results:
-            print("⚠️ No results returned by Tavily.")
+            print("No results returned by Tavily.")
             break
 
         for result in results:
@@ -99,7 +136,6 @@ def get_valid_articles(query, desired_count=5):
 
             if not url or url in seen_urls:
                 continue
-
             seen_urls.add(url)
 
             print(f"\n📰 Fetching: {title}")
@@ -107,19 +143,22 @@ def get_valid_articles(query, desired_count=5):
 
             article_text = fetch_article_text(url)
             if not article_text:
-                print("⚠️ Skipping — no valid article text found.")
+                print("Skipping — no valid article text found.")
                 continue
 
             summary = summarize_text(article_text)
-
-            all_results.append({
+            candidate = {
                 "title": title,
                 "date": date,
                 "url": url,
                 "summary": summary
-            })
+            }
+            if is_duplicate_article_llm(candidate, all_results):
+                print("Duplicate detected — skipping this article.")
+                continue
 
-            print(f"✅ Added valid article ({len(all_results)}/{desired_count})")
+            all_results.append(candidate)
+            print(f" Added valid article ({len(all_results)}/{desired_count})")
 
             if len(all_results) >= desired_count:
                 break
@@ -128,22 +167,18 @@ def get_valid_articles(query, desired_count=5):
 
     return all_results
 
-
 def analyze_common_patterns(articles):
     """Analyze recurring themes and causes across summarized articles."""
     if not articles:
         return "No summaries available for analysis."
-
     combined_summaries = "\n\n".join(
         [f"{i+1}. {a['summary']}" for i, a in enumerate(articles)]
     )
-
     llm = ChatGroq(
         api_key=os.environ["GROQ_API_KEY"],
         model="llama-3.3-70b-versatile",
         temperature=0.3
     )
-
     prompt = PromptTemplate(
         input_variables=["summaries"],
         template=(
@@ -168,7 +203,7 @@ def analyze_common_patterns(articles):
 if __name__ == "__main__":
     final_articles = get_valid_articles("recent coal mining accidents in India", desired_count=5)
 
-    print("\n\n--- 🧠 Final Summaries ---\n")
+    print("\n\n---Final Summaries ---\n")
     for i, a in enumerate(final_articles, 1):
         print(f"{i}. 📰 {a['title']}")
         print(f"   📅 {a['date']}")
@@ -176,8 +211,12 @@ if __name__ == "__main__":
         print(f"   🧾 Summary:\n{a['summary']}\n")
         print("-" * 90)
 
-    # --- Pattern Analysis ---
+   
     pattern_analysis = analyze_common_patterns(final_articles)
     print("\n\n--- 🔍 COMMON PATTERN ANALYSIS ---\n")
     print(pattern_analysis)
     print("\n" + "=" * 100)
+
+
+
+ 

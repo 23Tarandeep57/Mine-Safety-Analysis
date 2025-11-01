@@ -14,7 +14,7 @@ class RunMineSimulationTool:
 
         alerts = []
         for i, row in df.iterrows():
-            if row["hazard_flags"] != "✅ Safe":
+            if row["hazard_flags"] != "Safe":
                 alerts.append({
                     "reading_id": i + 1,
                     "temperature": row["temperature"],

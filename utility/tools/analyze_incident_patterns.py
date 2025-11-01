@@ -1,6 +1,6 @@
 
 from utility.db import ensure_mongo_collection
-from web_news import analyze_common_patterns
+from utility.analysis import make_advanced_report, render_narrative
 
 class AnalyzeIncidentPatternsTool:
     def __init__(self):
@@ -14,22 +14,15 @@ class AnalyzeIncidentPatternsTool:
             return "Error: MongoDB not available."
 
         # Fetch all incidents from the database
-        # For now, we'll just fetch the summary and title, similar to how web_news expects it.
-        # In a more advanced scenario, we might fetch more structured data.
-        incidents = list(self.coll.find({}, {"summary": 1, "_raw_title": 1, "_id": 0}))
+        incidents = list(self.coll.find({}))
 
         if not incidents:
             return "No incidents found in the database for analysis."
 
-        # Convert to the format expected by analyze_common_patterns
-        articles_for_analysis = []
-        for inc in incidents:
-            if inc.get("summary") and inc.get("_raw_title"):
-                articles_for_analysis.append({"summary": inc["summary"], "title": inc["_raw_title"]})
-
-        if not articles_for_analysis:
-            return "No suitable incident summaries found for analysis."
-
-        analysis_report = analyze_common_patterns(articles_for_analysis)
+        # Use make_advanced_report and render_narrative for structured analysis
+        # Default parameters for make_advanced_report can be configured or passed as arguments
+        advanced_report_data = make_advanced_report(incidents)
+        analysis_report = render_narrative(advanced_report_data)
+        
         print("Incident pattern analysis complete.")
         return analysis_report

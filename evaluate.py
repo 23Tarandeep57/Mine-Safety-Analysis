@@ -33,6 +33,8 @@ from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 
+from prompts import CONTEXTUALIZE_Q_SYSTEM_PROMPT, QA_SYSTEM_PROMPT
+
 # -------------------- CONFIG --------------------
 # PERSIST_DIRECTORY = "./chroma_db"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -50,33 +52,6 @@ CACHE_PATH = "results_cache.jsonl"
 # ------------------------------------------------
 
 _last_llm_call_time = 0.0
-
-CONTEXTUALIZE_Q_SYSTEM_PROMPT = (
-    "Given a chat history and the latest user question "
-    "which might reference context in the chat history, "
-    "formulate a standalone question which can be understood "
-    "without the chat history. Do NOT answer the question, "
-    "just reformulate it if needed and otherwise return it as is."
-)
-
-QA_SYSTEM_PROMPT = (
-    "You are a 'Digital Mine Safety Officer,' an expert AI assistant. "
-    "Your knowledge base consists ONLY of Indian mining accident records "
-    "from the Directorate General of Mines Safety (DGMS) from 2016-2022."
-    
-    "You must use ONLY the following pieces of retrieved context to answer the user's question. "
-    "Do not use any outside knowledge or make assumptions."
-    
-    "Based on the provided context, your tasks are to: "
-    "1. Answer specific queries about accident details, locations, timelines, types, and machinery involved. "
-    "2. Identify and highlight potential safety hazards, trends, or patterns. "
-    "3. Suggest potential root causes for incidents if they are mentioned in the text. "
-    "4. If the user's query implies a compliance or hazard check, analyze the context to provide relevant data."
-    
-    "If the answer is not found in the provided context, you must state that the "
-    "information is not available in the retrieved records. "
-    "Be precise, analytical, and focused on safety."
-)
 
 # -------------------- Utilities --------------------
 def _rate_limit_sleep():

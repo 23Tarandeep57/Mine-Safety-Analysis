@@ -18,6 +18,8 @@ from typing import TypedDict, Annotated, List
 import operator
 from datetime import datetime, timezone
 
+from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
+
 # Define the state for LangGraph
 class IncidentAnalysisState(TypedDict):
     # For news articles
@@ -30,10 +32,11 @@ class IncidentAnalysisState(TypedDict):
     dgms_report_link: dict # The DGMS report link (from DGMSMonitorAgent)
     dgms_document: dict # The full DGMS document collected
     verification_result: dict # Result of news verification
+    news_scan_results: dict # Results from the NewsScannerAgent
 
 # Define the IncidentAnalysisAgent
 class IncidentAnalysisAgent(Agent):
-    def __init__(self, name, message_bus, google_web_search_func):
+    def __init__(self, name, message_bus, google_web_search_func, llm, vector_store, mongo_collection, contextualize_q_chain, qa_chain):
         super().__init__(name, message_bus)
         self.google_web_search = google_web_search_func
         self.extract_tool = ExtractIncidentFromNewsTool()
@@ -48,6 +51,19 @@ class IncidentAnalysisAgent(Agent):
         self.dgms_report_graph = self._build_dgms_report_graph()
         self.subscribe("new_news_article", self.handle_news_article)
         self.subscribe("new_dgms_report", self.handle_dgms_report)
+        self.subscribe("user_query", self.handle_user_query)
+        self.subscribe("news_scan_results", self.handle_news_scan_results)
+
+        # Chatbot components
+        self.llm = llm
+        self.vector_store = vector_store
+        self.mongo_collection = mongo_collection
+        self.contextualize_q_chain = contextualize_q_chain
+        self.qa_chain = qa_chain
+        self.chat_history = [] # Maintain chat history for contextualization
+
+        # For agent collaboration
+        self.news_scan_complete = asyncio.Event()
 
     def _build_news_article_graph(self):
         workflow = StateGraph(IncidentAnalysisState)
@@ -70,11 +86,13 @@ class IncidentAnalysisAgent(Agent):
     def _build_dgms_report_graph(self):
         workflow = StateGraph(IncidentAnalysisState)
         workflow.add_node("collect_dgms", self.collect_dgms_node)
-        workflow.add_node("verify_dgms", self.verify_dgms_node)
+        workflow.add_node("request_news_scan", self.request_news_scan_node)
+        workflow.add_node("wait_for_news_scan", self.wait_for_news_scan_node)
         workflow.add_node("update_dgms_db", self.update_dgms_db_node)
         workflow.set_entry_point("collect_dgms")
-        workflow.add_edge("collect_dgms", "verify_dgms")
-        workflow.add_edge("verify_dgms", "update_dgms_db")
+        workflow.add_edge("collect_dgms", "request_news_scan")
+        workflow.add_edge("request_news_scan", "wait_for_news_scan")
+        workflow.add_edge("wait_for_news_scan", "update_dgms_db")
         workflow.add_edge("update_dgms_db", END)
         return workflow.compile()
 
@@ -107,18 +125,33 @@ class IncidentAnalysisAgent(Agent):
             print(f"Error collecting DGMS report: {result["message"]}")
             return {"dgms_document": None} # Or handle error state
 
-    async def verify_dgms_node(self, state: IncidentAnalysisState) -> dict:
-        print(f"[{self.name}] Verifying DGMS report with news...")
-        if state["dgms_document"] is None:
-            return {"verification_result": {"status": "error", "message": "No DGMS document to verify."}}
-        
-        verification_result = self.verify_tool.use(state["dgms_document"], self.google_web_search)
-        return {"verification_result": verification_result}
+    async def request_news_scan_node(self, state: IncidentAnalysisState) -> dict:
+        print(f"[{self.name}] Requesting news scan from NewsScannerAgent...")
+        if state["dgms_document"]:
+            incident_details = {
+                "mine_name": state["dgms_document"].get("mine_details", {}).get("name"),
+                "district": state["dgms_document"].get("mine_details", {}).get("district"),
+                "state": state["dgms_document"].get("mine_details", {}).get("state"),
+                "date": state["dgms_document"].get("accident_date"),
+            }
+            await self.publish("scan_news_for_incident", incident_details)
+        return {}
+
+    async def wait_for_news_scan_node(self, state: IncidentAnalysisState) -> dict:
+        print(f"[{self.name}] Waiting for news scan results...")
+        await self.news_scan_complete.wait()
+        self.news_scan_complete.clear()
+        return {"news_scan_results": self.last_news_scan_results}
+
+    async def handle_news_scan_results(self, message):
+        print(f"[{self.name}] Received news scan results.")
+        self.last_news_scan_results = message["payload"]
+        self.news_scan_complete.set()
 
     async def update_dgms_db_node(self, state: IncidentAnalysisState) -> dict:
         print(f"[{self.name}] Updating DGMS report in DB with verification status...")
-        if state["dgms_document"] is None or state["verification_result"] is None:
-            print("Cannot update DGMS DB: missing document or verification result.")
+        if state["dgms_document"] is None or state["news_scan_results"] is None:
+            print("Cannot update DGMS DB: missing document or news scan results.")
             return {}
 
         coll = self.add_db_tool.coll # Re-use the collection from add_db_tool
@@ -127,16 +160,19 @@ class IncidentAnalysisAgent(Agent):
             print("Cannot update DGMS DB: report_id missing from document.")
             return {}
 
+        articles = state["news_scan_results"].get("articles", [])
+        status = "verified" if articles else "unverified"
+
         update_data = {
             "verification": {
-                "status": state["verification_result"]["status"],
+                "status": status,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "articles": state["verification_result"].get("articles", []),
+                "articles": [article["url"] for article in articles],
             }
         }
         try:
             coll.update_one({"report_id": report_id}, {"$set": update_data})
-            print(f"DGMS report {report_id} updated with verification status: {update_data["verification"]["status"]}")
+            print(f"DGMS report {report_id} updated with verification status: {status}")
         except Exception as e:
             print(f"Error updating DGMS report {report_id} in DB: {e}")
         return {}
@@ -158,6 +194,43 @@ class IncidentAnalysisAgent(Agent):
         print(f"[{self.name}] Received new DGMS report link: {message["payload"]["report_id"]}")
         initial_state = {"dgms_report_link": message["payload"]}
         await self.dgms_report_graph.ainvoke(initial_state, config={"recursion_limit": 50})
+
+    async def handle_user_query(self, message):
+        query = message["payload"]["query"]
+        print(f"[{self.name}] Received user query: {query}")
+
+        # Perform RAG process
+        standalone_question = get_standalone_question(self.contextualize_q_chain, self.chat_history, query)
+        scored_chroma_docs = retrieve_from_chroma(self.vector_store, standalone_question)
+        mongo_contexts = retrieve_from_mongodb(self.mongo_collection, standalone_question)
+
+        top_chroma_score = 0.0
+        if scored_chroma_docs:
+            top_chroma_score = scored_chroma_docs[0][1]
+            chroma_docs = [doc for doc, score in scored_chroma_docs]
+        else:
+            chroma_docs = []
+
+        chroma_context_str = format_docs(chroma_docs)
+        mongo_context_str = "\n\n".join(mongo_contexts)
+
+        combined_context = (
+            f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
+            f"--- Real-time Data (Live) ---\n{mongo_context_str}"
+        )
+
+        answer = self.qa_chain.invoke({
+            "input": query,
+            "chat_history": self.chat_history,
+            "context": combined_context
+        })
+
+        # Update chat history
+        self.chat_history.append(HumanMessage(content=query))
+        self.chat_history.append(AIMessage(content=answer))
+
+        # Publish the final answer
+        await self.publish("final_answer", {"answer": answer})
 
     async def _run_periodic_analysis(self):
         while self.running:

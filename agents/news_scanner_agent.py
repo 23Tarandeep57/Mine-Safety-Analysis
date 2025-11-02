@@ -14,7 +14,7 @@ class NewsScannerAgent(Agent):
         while self.running:
             print(f"Agent {self.name} is scanning for news...")
             query = "recent coal mining accidents in India"
-            articles = self.monitor_news_tool.use(query, desired_count=10)
+            articles = await asyncio.to_thread(self.monitor_news_tool.use, query, desired_count=10)
 
             for article in articles:
                 if article["url"] not in self.seen_articles:
@@ -33,5 +33,5 @@ class NewsScannerAgent(Agent):
 
         query = f'{mine_name} mine accident in {district}, {state} on {date}'
         print(f"[{self.name}] Received scan request with query: {query}")
-        articles = self.monitor_news_tool.use(query, desired_count=5)
+        articles = await asyncio.to_thread(self.monitor_news_tool.use, query, desired_count=5)
         await self.publish("news_scan_results", {"articles": articles})

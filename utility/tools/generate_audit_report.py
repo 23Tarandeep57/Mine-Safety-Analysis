@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from utility.db import ensure_mongo_collection
 from utility.tools.analyze_incident_patterns import AnalyzeIncidentPatternsTool
 from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
+from utility.tools.generate_recommendations import GenerateRecommendationsTool
 from utility.config import DATA_DIR
 
 class GenerateAuditReportTool:
@@ -13,6 +14,7 @@ class GenerateAuditReportTool:
         self.coll = ensure_mongo_collection()
         self.analyze_patterns_tool = AnalyzeIncidentPatternsTool()
         self.generate_alerts_tool = GenerateSafetyAlertsTool()
+        self.generate_recommendations_tool = GenerateRecommendationsTool()
 
     def use(self, days_back: int = 365) -> str:
         print(f"Generating safety audit report for the last {days_back} days...")
@@ -38,11 +40,12 @@ class GenerateAuditReportTool:
         # --- 2. Incorporate AI Analysis ---
         analysis_report_text = self.analyze_patterns_tool.use()
         alerts = self.generate_alerts_tool.use(analysis_report_text)
+        recommendations = self.generate_recommendations_tool.use(analysis_report_text)
 
         # --- 3. Generate the Report ---
         report_content = self._build_markdown_report(
             start_date, end_date, num_incidents, num_fatalities, num_injuries, 
-            analysis_report_text, alerts
+            analysis_report_text, alerts, recommendations
         )
 
         # --- 4. Save the Report ---
@@ -57,7 +60,7 @@ class GenerateAuditReportTool:
             print(f"Error saving report: {e}")
             return f"Error saving report: {e}"
 
-    def _build_markdown_report(self, start_date, end_date, num_incidents, num_fatalities, num_injuries, analysis, alerts):
+    def _build_markdown_report(self, start_date, end_date, num_incidents, num_fatalities, num_injuries, analysis, alerts, recommendations):
         report = f"""# Mine Safety Audit Report
 
 **Report Date:** {datetime.now().strftime("%Y-%m-%d")}
@@ -96,6 +99,9 @@ Based on the pattern analysis, the following actionable safety alerts have been 
         for alert in alerts:
             report += f"- **ALERT:** {alert}\n"
         
-        report += "\n---\n\n## 5. Recommendations\n\n*(This section can be expanded with a recommendation generation tool in the future.)*\n"
+        report += "\n---\n\n## 5. Recommendations\n\n"
+
+        for rec in recommendations:
+            report += f"- {rec}\n"
 
         return report

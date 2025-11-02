@@ -8,6 +8,7 @@ class NewsScannerAgent(Agent):
         super().__init__(name, message_bus)
         self.monitor_news_tool = MonitorNewsTool()
         self.seen_articles = set() # To avoid reprocessing the same articles
+        self.subscribe("scan_news_for_incident", self.handle_scan_request)
 
     async def run(self):
         while self.running:
@@ -22,3 +23,15 @@ class NewsScannerAgent(Agent):
                     self.seen_articles.add(article["url"])
             
             await asyncio.sleep(300) # Scan every 5 minutes
+
+    async def handle_scan_request(self, message):
+        incident_details = message["payload"]
+        mine_name = incident_details.get("mine_name", "")
+        district = incident_details.get("district", "")
+        state = incident_details.get("state", "")
+        date = incident_details.get("date", "")
+
+        query = f'{mine_name} mine accident in {district}, {state} on {date}'
+        print(f"[{self.name}] Received scan request with query: {query}")
+        articles = self.monitor_news_tool.use(query, desired_count=5)
+        await self.publish("news_scan_results", {"articles": articles})

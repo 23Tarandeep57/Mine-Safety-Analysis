@@ -6,6 +6,8 @@ Pillow
 pytesseract
 beautifulsoup4
 tavily
+pymongo
+certifi
 
 # LangChain + Groq integration
 langchain
@@ -28,3 +30,7 @@ transformers
 sentence-transformers 
 torch
 
+# Evaluation
+ragas
+datasets
+langchain_chroma

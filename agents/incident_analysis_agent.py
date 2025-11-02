@@ -19,6 +19,7 @@ import operator
 from datetime import datetime, timezone
 
 from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
+from langchain_core.messages import HumanMessage, AIMessage
 
 # Define the state for LangGraph
 class IncidentAnalysisState(TypedDict):
@@ -98,18 +99,18 @@ class IncidentAnalysisAgent(Agent):
 
     async def extract_incident_node(self, state: IncidentAnalysisState) -> dict:
         print(f"[{self.name}] Extracting incident from article...")
-        extracted_data = self.extract_tool.use(state["article"])
+        extracted_data = await asyncio.to_thread(self.extract_tool.use, state["article"])
         return {"extracted_incident": extracted_data}
 
     async def check_duplicate_node(self, state: IncidentAnalysisState) -> dict:
         print(f"[{self.name}] Checking for duplicate incident...")
-        is_duplicate = self.check_db_tool.use(state["extracted_incident"])
+        is_duplicate = await asyncio.to_thread(self.check_db_tool.use, state["extracted_incident"])
         return {"is_duplicate": is_duplicate}
 
     async def add_to_db_node(self, state: IncidentAnalysisState) -> dict:
         print(f"[{self.name}] Adding new incident to DB...")
         article = state["article"]
-        db_add_result = self.add_db_tool.use(
+        db_add_result = await asyncio.to_thread(self.add_db_tool.use,
             state["extracted_incident"],
             article["url"],
             article["title"],
@@ -118,7 +119,7 @@ class IncidentAnalysisAgent(Agent):
 
     async def collect_dgms_node(self, state: IncidentAnalysisState) -> dict:
         print(f"[{self.name}] Collecting full DGMS report...")
-        result = self.collect_dgms_tool.use(state["dgms_report_link"]["link"])
+        result = await asyncio.to_thread(self.collect_dgms_tool.use, state["dgms_report_link"]["link"])
         if result["status"] == "success":
             return {"dgms_document": result["document"]}
         else:
@@ -171,7 +172,7 @@ class IncidentAnalysisAgent(Agent):
             }
         }
         try:
-            coll.update_one({"report_id": report_id}, {"$set": update_data})
+            await asyncio.to_thread(coll.update_one, {"report_id": report_id}, {"$set": update_data})
             print(f"DGMS report {report_id} updated with verification status: {status}")
         except Exception as e:
             print(f"Error updating DGMS report {report_id} in DB: {e}")
@@ -197,45 +198,63 @@ class IncidentAnalysisAgent(Agent):
 
     async def handle_user_query(self, message):
         query = message["payload"]["query"]
-        print(f"[{self.name}] Received user query: {query}")
+        print(f"[{self.name}] DEBUG: Handling user query: {query}")
 
-        # Perform RAG process
-        standalone_question = get_standalone_question(self.contextualize_q_chain, self.chat_history, query)
-        scored_chroma_docs = retrieve_from_chroma(self.vector_store, standalone_question)
-        mongo_contexts = retrieve_from_mongodb(self.mongo_collection, standalone_question)
+        try:
+            # Perform RAG process
+            print(f"[{self.name}] DEBUG: Getting standalone question...")
+            standalone_question = await asyncio.to_thread(get_standalone_question, self.contextualize_q_chain, self.chat_history, query)
+            print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
 
-        top_chroma_score = 0.0
-        if scored_chroma_docs:
-            top_chroma_score = scored_chroma_docs[0][1]
-            chroma_docs = [doc for doc, score in scored_chroma_docs]
-        else:
-            chroma_docs = []
+            print(f"[{self.name}] DEBUG: Retrieving from ChromaDB...")
+            scored_chroma_docs = await asyncio.to_thread(retrieve_from_chroma, self.vector_store, standalone_question)
+            print(f"[{self.name}] DEBUG: Retrieved {len(scored_chroma_docs)} docs from ChromaDB.")
 
-        chroma_context_str = format_docs(chroma_docs)
-        mongo_context_str = "\n\n".join(mongo_contexts)
+            print(f"[{self.name}] DEBUG: Retrieving from MongoDB...")
+            mongo_contexts = await asyncio.to_thread(retrieve_from_mongodb, self.mongo_collection, standalone_question)
+            print(f"[{self.name}] DEBUG: Retrieved {len(mongo_contexts)} contexts from MongoDB.")
 
-        combined_context = (
-            f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
-            f"--- Real-time Data (Live) ---\n{mongo_context_str}"
-        )
+            top_chroma_score = 0.0
+            if scored_chroma_docs:
+                top_chroma_score = scored_chroma_docs[0][1]
+                chroma_docs = [doc for doc, score in scored_chroma_docs]
+            else:
+                chroma_docs = []
 
-        answer = self.qa_chain.invoke({
-            "input": query,
-            "chat_history": self.chat_history,
-            "context": combined_context
-        })
+            chroma_context_str = format_docs(chroma_docs)
+            mongo_context_str = "\n\n".join(mongo_contexts)
 
-        # Update chat history
-        self.chat_history.append(HumanMessage(content=query))
-        self.chat_history.append(AIMessage(content=answer))
+            combined_context = (
+                f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
+                f"--- Real-time Data (Live) ---\n{mongo_context_str}"
+            )
 
-        # Publish the final answer
-        await self.publish("final_answer", {"answer": answer})
+            print(f"[{self.name}] DEBUG: Invoking QA chain...")
+            answer = await asyncio.to_thread(self.qa_chain.invoke, {
+                "input": query,
+                "chat_history": self.chat_history,
+                "context": combined_context
+            })
+            print(f"[{self.name}] DEBUG: QA chain finished.")
+
+            # Update chat history
+            self.chat_history.append(HumanMessage(content=query))
+            self.chat_history.append(AIMessage(content=answer))
+
+            # Publish the final answer
+            print(f"[{self.name}] DEBUG: Publishing final answer...")
+            await self.publish("final_answer", {"answer": answer})
+            print(f"[{self.name}] DEBUG: Final answer published.")
+
+        except Exception as e:
+            print(f"[{self.name}] ERROR in handle_user_query: {e}")
+            await self.publish("final_answer", {"answer": "I encountered an error while processing your request. Please try again."})
+
 
     async def _run_periodic_analysis(self):
         while self.running:
             print(f"[{self.name}] Running periodic analysis...")
-            analysis_report = self.analyze_patterns_tool.use()
+            analysis_report = await asyncio.to_thread(self.analyze_patterns_tool.use)
             print(f"[{self.name}] Analysis Report: {analysis_report[:200]}...")
             if analysis_report and "Error" not in analysis_report:
                 # Save raw analysis report
@@ -246,7 +265,7 @@ class IncidentAnalysisAgent(Agent):
                 print(f"[{self.name}] Raw analysis report saved to {analysis_path}")
                 await self.publish("analysis_report_saved", {"report_path": str(analysis_path)})
 
-                alerts = self.generate_alerts_tool.use(analysis_report)
+                alerts = await asyncio.to_thread(self.generate_alerts_tool.use, analysis_report)
                 if alerts:
                     # Save generated alerts
                     alerts_filename = f"safety_alerts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -264,7 +283,7 @@ class IncidentAnalysisAgent(Agent):
     async def _run_periodic_report_generation(self):
         while self.running:
             print(f"[{self.name}] Running periodic audit report generation...")
-            report_path = self.generate_audit_tool.use()
+            report_path = await asyncio.to_thread(self.generate_audit_tool.use)
             print(f"[{self.name}] Audit Report: {report_path}")
             await self.publish("audit_report_generated", {"report_path": report_path})
             await asyncio.sleep(86400) # Generate report every 24 hours

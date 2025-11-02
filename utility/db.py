@@ -8,12 +8,12 @@ def ensure_mongo_collection():
         db = client[MONGODB_DB]
         coll = db[MONGODB_COLLECTION]
         
-        # Ensure the correct index is in place
+      
         index_name = "report_id_1"
         index_info = coll.index_information()
         
         if index_name in index_info:
-            # Check if the existing index is the correct partial index
+            
             is_correct_index = index_info[index_name].get("partialFilterExpression") == {"report_id": {"$type": "string"}}
             if not is_correct_index:
                 print(f"Dropping incorrect index '{index_name}'...")

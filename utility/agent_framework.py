@@ -27,14 +27,17 @@ class Agent:
         self.name = name
         self.message_bus = message_bus
         self.running = False
+        self._task = None
 
     async def start(self):
         self.running = True
         print(f"Agent {self.name} started.")
-        await self.run()
+        self._task = asyncio.create_task(self.run())
 
     async def stop(self):
         self.running = False
+        if self._task:
+            self._task.cancel()
         print(f"Agent {self.name} stopped.")
 
     async def run(self):

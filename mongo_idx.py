@@ -9,7 +9,7 @@ MONGO_COLLECTION_NAME = "dgms_reports"  # The name of your collection
 
 # Load .env file
 load_dotenv()
-MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
+MONGO_CONNECTION_STRING = os.getenv("MONGODB_URI")
 
 if not MONGO_CONNECTION_STRING:
     print("Error: MONGO_CONNECTION_STRING not found in .env file.")

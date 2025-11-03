@@ -18,7 +18,7 @@ class NewsScannerAgent(Agent):
 
             for article in articles:
                 if article["url"] not in self.seen_articles:
-                    print(f"Agent {self.name} found new article: {article["title"]}")
+                    print(f"Agent {self.name} found new article: {article['title']}")
                     await self.publish("new_news_article", article)
                     self.seen_articles.add(article["url"])
             

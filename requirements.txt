@@ -28,7 +28,6 @@ pdfplumber
 pillow
 transformers 
 sentence-transformers 
-torch
 
 # Evaluation
 ragas

@@ -57,3 +57,4 @@ Thumbs.db
 
 # Project data outputs
 data/
+.env

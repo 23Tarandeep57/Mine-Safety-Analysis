@@ -86,10 +86,10 @@ def create_manual_chains(llm):
 
     return contextualize_q_chain, qa_chain
 
-def get_standalone_question(chain, chat_history, query):
+async def get_standalone_question(chain, chat_history, query):
     if not chat_history:
         return query
-    return chain.invoke({"input": query, "chat_history": chat_history})
+    return await chain.ainvoke({"input": query, "chat_history": chat_history})
 
 def retrieve_from_chroma(vector_store, query):
     print(f"[DEBUG] Retrieving from ChromaDB (PDFs)...")

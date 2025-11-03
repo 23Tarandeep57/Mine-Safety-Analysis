@@ -58,4 +58,4 @@ Thumbs.db
 # Project data outputs
 data/
 .env
-
+chroma_db/

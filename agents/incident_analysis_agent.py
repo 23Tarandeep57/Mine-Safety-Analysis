@@ -24,6 +24,9 @@ from datetime import datetime, timezone
 from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
 from langchain_core.messages import HumanMessage, AIMessage
 
+BOT_RESPONSE_FILE = r"C:\Users\mahim\Mine-Safety-Analysis\data\bot_response.txt" # Make sure this path is correct
+EOS_TOKEN = "<EOS>"
+
 # Define the state for LangGraph
 class IncidentAnalysisState(TypedDict):
     # For news articles
@@ -200,6 +203,7 @@ class IncidentAnalysisAgent(Agent):
         initial_state = {"dgms_report_link": message["payload"]}
         await self.dgms_report_graph.ainvoke(initial_state, config={"recursion_limit": 50})
 
+
     @staticmethod
     async def _call_maybe_awaitable(func, *args, timeout=None, **kwargs):
         """
@@ -224,21 +228,67 @@ class IncidentAnalysisAgent(Agent):
             return await asyncio.to_thread(lambda: result)
 
 
+
+    #helper function
+    def stream_response_to_file(self, qa_chain, chat_history, query, context, file_path):
+        """
+        Runs the streaming chain and writes chunks to a file.
+        This function is designed to be run in asyncio.to_thread.
+        """
+        full_answer = ""
+        try:
+            # Overwrite the file at the start of the response
+            with open(file_path, "w", encoding="utf-8") as f:
+                # .stream() is a synchronous generator
+                for chunk in qa_chain.stream({
+                    "input": query,
+                    "chat_history": chat_history,
+                    "context": context
+                }):
+                    f.write(chunk)
+                    f.flush()  # Force write to disk so the client can read it
+                    full_answer += chunk
+            
+            # After stream is done, append the End-of-Stream token
+            with open(file_path, "a", encoding="utf-8") as f:
+                f.write(EOS_TOKEN)
+                f.flush()
+            
+        except Exception as e:
+            print(f"[Agent] ERROR in stream_response_to_file: {e}")
+            # Try to write an error message to the file
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(f"I encountered an error while streaming. Please try again.<EOS>")
+                    f.flush()
+            except Exception:
+                pass # Failed to write error
+        
+        return full_answer
+    
+
     async def handle_user_query(self, message):
         query = message["payload"]["query"]
         print(f"[{self.name}] handle_user_query: {query!r}")
 
         try:
+
             # 1) get standalone question (likely sync): use helper
-            print(f"[{self.name}] Getting standalone question...")
-            standalone_question = await self._call_maybe_awaitable(
-                get_standalone_question,
-                self.contextualize_q_chain,
-                self.chat_history,
-                query,
-                timeout=30,
-            )
-            print(f"[{self.name}] Standalone question: {standalone_question!r}")
+            # print(f"[{self.name}] Getting standalone question...")
+            # standalone_question = await self._call_maybe_awaitable(
+            #     get_standalone_question,
+            #     self.contextualize_q_chain,
+            #     self.chat_history,
+            #     query,
+            #     timeout=30,
+            # )
+            # print(f"[{self.name}] Standalone question: {standalone_question!r}")
+
+            # --- RAG Process (Same as before) ---
+            print(f"[{self.name}] DEBUG: Getting standalone question...")
+            standalone_question = await get_standalone_question(self.contextualize_q_chain, self.chat_history, query)
+            print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
+
 
             # 2) retrieve from vector store and mongo in parallel (non-blocking)
             loop = asyncio.get_running_loop()
@@ -261,39 +311,63 @@ class IncidentAnalysisAgent(Agent):
                 f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
                 f"--- Real-time Data (Live) ---\n{mongo_context_str}"
             )
-
-            # 3) call QA chain safely (it may be async or sync)
-            print(f"[{self.name}] Invoking QA chain (with timeout)...")
-            # you can tune timeout (e.g., 60s)
-            qa_timeout = int(os.environ.get("QA_TIMEOUT_SEC", "60"))
-            answer = await self._call_maybe_awaitable(
-                self.qa_chain.invoke,
-                {
-                    "input": query,
-                    "chat_history": self.chat_history,
-                    "context": combined_context
-                },
-                timeout=qa_timeout
+            
+            # --- !! KEY CHANGE !! ---
+            # Instead of self.qa_chain.invoke, we run our new streaming 
+            # file writer in a thread to keep the agent non-blocking.
+            
+            print(f"[{self.name}] DEBUG: Streaming QA chain to file...")
+            full_answer = await asyncio.to_thread(
+                self.stream_response_to_file,
+                self.qa_chain,  # This MUST be your *streaming* chain
+                self.chat_history,
+                query,
+                combined_context,
+                BOT_RESPONSE_FILE # Pass the file path
             )
+            print(f"[{self.name}] DEBUG: QA stream finished.")
 
-            # 4) update chat history with lock
-            async with self.chat_history_lock:
-                # keep a bounded history if needed
-                MAX_HISTORY = 50
-                self.chat_history.append(HumanMessage(content=query))
-                self.chat_history.append(AIMessage(content=answer))
-                if len(self.chat_history) > MAX_HISTORY:
-                    # drop oldest pair
-                    self.chat_history = self.chat_history[-MAX_HISTORY:]
+# <<<<<<< HEAD
+#             # 3) call QA chain safely (it may be async or sync)
+#             print(f"[{self.name}] Invoking QA chain (with timeout)...")
+#             # you can tune timeout (e.g., 60s)
+#             qa_timeout = int(os.environ.get("QA_TIMEOUT_SEC", "60"))
+#             answer = await self._call_maybe_awaitable(
+#                 self.qa_chain.invoke,
+#                 {
+#                     "input": query,
+#                     "chat_history": self.chat_history,
+#                     "context": combined_context
+#                 },
+#                 timeout=qa_timeout
+#             )
 
-            # 5) publish final answer (ensure publish is awaitable)
-            print(f"[{self.name}] Publishing final answer...")
-            publish_coro = self.publish("final_answer", {"answer": answer})
-            if inspect.isawaitable(publish_coro):
-                await publish_coro
-            else:
-                # publish may be sync, run in thread
-                await asyncio.to_thread(lambda: publish_coro)
+#             # 4) update chat history with lock
+#             async with self.chat_history_lock:
+#                 # keep a bounded history if needed
+#                 MAX_HISTORY = 50
+#                 self.chat_history.append(HumanMessage(content=query))
+#                 self.chat_history.append(AIMessage(content=answer))
+#                 if len(self.chat_history) > MAX_HISTORY:
+#                     # drop oldest pair
+#                     self.chat_history = self.chat_history[-MAX_HISTORY:]
+
+#             # 5) publish final answer (ensure publish is awaitable)
+#             print(f"[{self.name}] Publishing final answer...")
+#             publish_coro = self.publish("final_answer", {"answer": answer})
+#             if inspect.isawaitable(publish_coro):
+#                 await publish_coro
+#             else:
+#                 # publish may be sync, run in thread
+#                 await asyncio.to_thread(lambda: publish_coro)
+# =======
+            # Update chat history (using the full answer)
+            self.chat_history.append(HumanMessage(content=query))
+            self.chat_history.append(AIMessage(content=full_answer))
+
+            # We no longer need to publish a "final_answer" message,
+            # because the client is reading the file directly.
+# >>>>>>> origin/mahima_branch
 
             print(f"[{self.name}] Final answer published.")
 
@@ -302,13 +376,79 @@ class IncidentAnalysisAgent(Agent):
             print(f"[{self.name}] QA timed out. {tb}")
             await self.publish("final_answer", {"answer": "The system timed out while generating an answer. Try again later."})
         except Exception as e:
-            tb = traceback.format_exc()
-            print(f"[{self.name}] ERROR in handle_user_query: {e}\n{tb}")
+# <<<<<<< HEAD
+#             tb = traceback.format_exc()
+#             print(f"[{self.name}] ERROR in handle_user_query: {e}\n{tb}")
+#             try:
+#                 await self.publish("final_answer", {"answer": "I encountered an internal error. Please try again."})
+#             except Exception:
+#                 # swallow publish failure to avoid crashing
+#                 print(f"[{self.name}] Failed to publish error message.")
+# =======
+            print(f"[{self.name}] ERROR in handle_user_query: {e}")
+            # Try to write the error to the file for the client to see
             try:
-                await self.publish("final_answer", {"answer": "I encountered an internal error. Please try again."})
+                with open(BOT_RESPONSE_FILE, "w", encoding="utf-8") as f:
+                    f.write(f"I encountered an error: {e}<EOS>")
+                    f.flush()
             except Exception:
-                # swallow publish failure to avoid crashing
-                print(f"[{self.name}] Failed to publish error message.")
+                pass
+
+    # async def handle_user_query(self, message):
+    #     query = message["payload"]["query"]
+    #     print(f"[{self.name}] DEBUG: Handling user query: {query}")
+
+    #     try:
+    #         # Perform RAG process
+    #         print(f"[{self.name}] DEBUG: Getting standalone question...")
+    #         standalone_question = await asyncio.to_thread(get_standalone_question, self.contextualize_q_chain, self.chat_history, query)
+    #         print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
+
+    #         print(f"[{self.name}] DEBUG: Retrieving from ChromaDB...")
+    #         scored_chroma_docs = await asyncio.to_thread(retrieve_from_chroma, self.vector_store, standalone_question)
+    #         print(f"[{self.name}] DEBUG: Retrieved {len(scored_chroma_docs)} docs from ChromaDB.")
+
+    #         print(f"[{self.name}] DEBUG: Retrieving from MongoDB...")
+    #         mongo_contexts = await asyncio.to_thread(retrieve_from_mongodb, self.mongo_collection, standalone_question)
+    #         print(f"[{self.name}] DEBUG: Retrieved {len(mongo_contexts)} contexts from MongoDB.")
+
+    #         top_chroma_score = 0.0
+    #         if scored_chroma_docs:
+    #             top_chroma_score = scored_chroma_docs[0][1]
+    #             chroma_docs = [doc for doc, score in scored_chroma_docs]
+    #         else:
+    #             chroma_docs = []
+
+    #         chroma_context_str = format_docs(chroma_docs)
+    #         mongo_context_str = "\n\n".join(mongo_contexts)
+
+    #         combined_context = (
+    #             f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
+    #             f"--- Real-time Data (Live) ---\n{mongo_context_str}"
+    #         )
+
+    #         print(f"[{self.name}] DEBUG: Invoking QA chain...")
+    #         answer = await asyncio.to_thread(self.qa_chain.invoke, {
+    #             "input": query,
+    #             "chat_history": self.chat_history,
+    #             "context": combined_context
+    #         })
+    #         print(f"[{self.name}] DEBUG: QA chain finished.")
+
+    #         # Update chat history
+    #         self.chat_history.append(HumanMessage(content=query))
+    #         self.chat_history.append(AIMessage(content=answer))
+
+    #         # Publish the final answer
+    #         print(f"[{self.name}] DEBUG: Publishing final answer...")
+    #         await self.publish("final_answer", {"answer": answer})
+    #         print(f"[{self.name}] DEBUG: Final answer published.")
+
+    #     except Exception as e:
+    #         print(f"[{self.name}] ERROR in handle_user_query: {e}")
+    #         await self.publish("final_answer", {"answer": "I encountered an error while processing your request. Please try again."})
+
+# >>>>>>> origin/mahima_branch
 
     async def _run_periodic_analysis(self):
         while self.running:

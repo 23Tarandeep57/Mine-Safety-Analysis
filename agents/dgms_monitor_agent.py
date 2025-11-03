@@ -15,7 +15,7 @@ class DGMSMonitorAgent(Agent):
             new_reports = await asyncio.to_thread(self.monitor_website_tool.use)
 
             for report in new_reports:
-                print(f"Agent {self.name} found new DGMS report: {report["report_id"]}")
+                print(f"Agent {self.name} found new DGMS report: {report['report_id']}")
                 await self.publish("new_dgms_report", report)
             
             await asyncio.sleep(300) # Scan every 5 minutes

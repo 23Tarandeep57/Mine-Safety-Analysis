@@ -12,6 +12,9 @@ from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
 from utility.tools.generate_audit_report import GenerateAuditReportTool
 from utility.config import DATA_DIR
 import json
+import inspect
+import traceback
+import os
 
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Annotated, List
@@ -39,6 +42,7 @@ class IncidentAnalysisState(TypedDict):
 class IncidentAnalysisAgent(Agent):
     def __init__(self, name, message_bus, google_web_search_func, llm, vector_store, mongo_collection, contextualize_q_chain, qa_chain):
         super().__init__(name, message_bus)
+        self.chat_history_lock = asyncio.Lock()
         self.google_web_search = google_web_search_func
         self.extract_tool = ExtractIncidentFromNewsTool()
         self.check_db_tool = CheckIncidentInDBTool()
@@ -196,31 +200,60 @@ class IncidentAnalysisAgent(Agent):
         initial_state = {"dgms_report_link": message["payload"]}
         await self.dgms_report_graph.ainvoke(initial_state, config={"recursion_limit": 50})
 
+    @staticmethod
+    async def _call_maybe_awaitable(func, *args, timeout=None, **kwargs):
+        """
+        Call func(*args, **kwargs). If it returns an awaitable, await it.
+        If it's a regular function, run it in a thread via asyncio.to_thread.
+        Optionally apply timeout (seconds).
+        """
+        try:
+            result = func(*args, **kwargs)
+        except Exception as e:
+            # sync function raised immediately
+            raise
+
+        if asyncio.iscoroutine(result) or inspect.isawaitable(result):
+            if timeout:
+                return await asyncio.wait_for(result, timeout=timeout)
+            return await result
+        else:
+            # sync result or blocking function: run in thread
+            if timeout:
+                return await asyncio.wait_for(asyncio.to_thread(lambda: result), timeout=timeout)
+            return await asyncio.to_thread(lambda: result)
+
+
     async def handle_user_query(self, message):
         query = message["payload"]["query"]
-        print(f"[{self.name}] DEBUG: Handling user query: {query}")
+        print(f"[{self.name}] handle_user_query: {query!r}")
 
         try:
-            # Perform RAG process
-            print(f"[{self.name}] DEBUG: Getting standalone question...")
-            standalone_question = await asyncio.to_thread(get_standalone_question, self.contextualize_q_chain, self.chat_history, query)
-            print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
+            # 1) get standalone question (likely sync): use helper
+            print(f"[{self.name}] Getting standalone question...")
+            standalone_question = await self._call_maybe_awaitable(
+                get_standalone_question,
+                self.contextualize_q_chain,
+                self.chat_history,
+                query,
+                timeout=30,
+            )
+            print(f"[{self.name}] Standalone question: {standalone_question!r}")
 
-            print(f"[{self.name}] DEBUG: Retrieving from ChromaDB...")
-            scored_chroma_docs = await asyncio.to_thread(retrieve_from_chroma, self.vector_store, standalone_question)
-            print(f"[{self.name}] DEBUG: Retrieved {len(scored_chroma_docs)} docs from ChromaDB.")
+            # 2) retrieve from vector store and mongo in parallel (non-blocking)
+            loop = asyncio.get_running_loop()
+            retrieve_chroma = loop.run_in_executor(None, retrieve_from_chroma, self.vector_store, standalone_question)
+            retrieve_mongo = loop.run_in_executor(None, retrieve_from_mongodb, self.mongo_collection, standalone_question)
+            scored_chroma_docs, mongo_contexts = await asyncio.gather(retrieve_chroma, retrieve_mongo)
 
-            print(f"[{self.name}] DEBUG: Retrieving from MongoDB...")
-            mongo_contexts = await asyncio.to_thread(retrieve_from_mongodb, self.mongo_collection, standalone_question)
-            print(f"[{self.name}] DEBUG: Retrieved {len(mongo_contexts)} contexts from MongoDB.")
+            print(f"[{self.name}] Retrieved {len(scored_chroma_docs)} chroma docs and {len(mongo_contexts)} mongo contexts.")
 
             top_chroma_score = 0.0
+            chroma_docs = []
             if scored_chroma_docs:
+                # scored_chroma_docs is list of (doc, score) pairs per your code earlier
                 top_chroma_score = scored_chroma_docs[0][1]
                 chroma_docs = [doc for doc, score in scored_chroma_docs]
-            else:
-                chroma_docs = []
-
             chroma_context_str = format_docs(chroma_docs)
             mongo_context_str = "\n\n".join(mongo_contexts)
 
@@ -229,27 +262,53 @@ class IncidentAnalysisAgent(Agent):
                 f"--- Real-time Data (Live) ---\n{mongo_context_str}"
             )
 
-            print(f"[{self.name}] DEBUG: Invoking QA chain...")
-            answer = await asyncio.to_thread(self.qa_chain.invoke, {
-                "input": query,
-                "chat_history": self.chat_history,
-                "context": combined_context
-            })
-            print(f"[{self.name}] DEBUG: QA chain finished.")
+            # 3) call QA chain safely (it may be async or sync)
+            print(f"[{self.name}] Invoking QA chain (with timeout)...")
+            # you can tune timeout (e.g., 60s)
+            qa_timeout = int(os.environ.get("QA_TIMEOUT_SEC", "60"))
+            answer = await self._call_maybe_awaitable(
+                self.qa_chain.invoke,
+                {
+                    "input": query,
+                    "chat_history": self.chat_history,
+                    "context": combined_context
+                },
+                timeout=qa_timeout
+            )
 
-            # Update chat history
-            self.chat_history.append(HumanMessage(content=query))
-            self.chat_history.append(AIMessage(content=answer))
+            # 4) update chat history with lock
+            async with self.chat_history_lock:
+                # keep a bounded history if needed
+                MAX_HISTORY = 50
+                self.chat_history.append(HumanMessage(content=query))
+                self.chat_history.append(AIMessage(content=answer))
+                if len(self.chat_history) > MAX_HISTORY:
+                    # drop oldest pair
+                    self.chat_history = self.chat_history[-MAX_HISTORY:]
 
-            # Publish the final answer
-            print(f"[{self.name}] DEBUG: Publishing final answer...")
-            await self.publish("final_answer", {"answer": answer})
-            print(f"[{self.name}] DEBUG: Final answer published.")
+            # 5) publish final answer (ensure publish is awaitable)
+            print(f"[{self.name}] Publishing final answer...")
+            publish_coro = self.publish("final_answer", {"answer": answer})
+            if inspect.isawaitable(publish_coro):
+                await publish_coro
+            else:
+                # publish may be sync, run in thread
+                await asyncio.to_thread(lambda: publish_coro)
 
+            print(f"[{self.name}] Final answer published.")
+
+        except asyncio.TimeoutError:
+            tb = traceback.format_exc()
+            print(f"[{self.name}] QA timed out. {tb}")
+            await self.publish("final_answer", {"answer": "The system timed out while generating an answer. Try again later."})
         except Exception as e:
-            print(f"[{self.name}] ERROR in handle_user_query: {e}")
-            await self.publish("final_answer", {"answer": "I encountered an error while processing your request. Please try again."})
-
+            tb = traceback.format_exc()
+            print(f"[{self.name}] ERROR in handle_user_query: {e}\n{tb}")
+            try:
+                await self.publish("final_answer", {"answer": "I encountered an internal error. Please try again."})
+            except Exception:
+                # swallow publish failure to avoid crashing
+                print(f"[{self.name}] Failed to publish error message.")
 
     async def _run_periodic_analysis(self):
         while self.running:

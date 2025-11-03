@@ -11,7 +11,7 @@ class CheckIncidentInDBTool:
         self.coll = self.client[MONGODB_DB][MONGODB_COLLECTION]
 
     def use(self, incident: dict) -> bool:
-        print(f"Checking for existing incident in DB: {incident.get("mine_name", "N/A")} on {incident.get("incident_date", "N/A")}")
+        print(f"Checking for existing incident in DB: {incident.get('mine_name', 'N/A')} on {incident.get('incident_date', 'N/A')}")
         
         query = {}
         location_fields = ["state", "district"]

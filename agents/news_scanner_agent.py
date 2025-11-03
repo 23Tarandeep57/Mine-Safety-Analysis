@@ -35,3 +35,4 @@ class NewsScannerAgent(Agent):
         print(f"[{self.name}] Received scan request with query: {query}")
         articles = await asyncio.to_thread(self.monitor_news_tool.use, query, desired_count=5)
         await self.publish("news_scan_results", {"articles": articles})
+        

@@ -12,7 +12,7 @@ class AddIncidentToDBTool:
         self.coll = self.client[MONGODB_DB][MONGODB_COLLECTION]
 
     def use(self, incident: dict, source_url: str, raw_title: str) -> dict:
-        print(f"Adding incident to DB: {incident.get("mine_name", "N/A")} on {incident.get("incident_date", "N/A")}")
+        print(f"Adding incident to DB: {incident.get('mine_name', 'N/A')} on {incident.get('incident_date', 'N/A')}")
         
         try:
             report = Report(

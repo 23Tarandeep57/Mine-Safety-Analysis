@@ -10,7 +10,7 @@ class ExtractIncidentFromNewsTool:
         self.llm = get_llm()
 
     def use(self, article: dict) -> dict:
-        print(f"Extracting incident from news article: {article.get("title", "N/A")}")
+        print(f"Extracting incident from news article: {article.get('title', 'N/A')}")
         prompt = self._get_extraction_prompt(article)
         try:
             resp = self.llm.invoke(prompt)

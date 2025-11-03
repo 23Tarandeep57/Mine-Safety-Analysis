@@ -10,7 +10,7 @@ class VerifyReportWithNewsTool:
         self.description = "Verifies a report with news articles from the web."
 
     def use(self, report: dict, google_web_search_func) -> dict:
-        print(f"Using verify_report_with_news tool for report: {report.get("report_id", "N/A")}")
+        print(f"Using verify_report_with_news tool for report: {report.get('report_id', 'N/A')}")
         coll = ensure_mongo_collection()
         if coll is None:
             return {"status": "error", "message": "MongoDB not available."}
@@ -65,9 +65,9 @@ class VerifyReportWithNewsTool:
         # Determine verification status
         if corroborating_articles:
             status = "verified"
-            print(f"Report {report.get("report_id", "N/A")} verified with {len(corroborating_articles)} articles.")
+            print(f"Report {report.get('report_id', 'N/A')} verified with {len(corroborating_articles)} articles.")
         else:
             status = "unverified"
-            print(f"Report {report.get("report_id", "N/A")} could not be verified.")
+            print(f"Report {report.get('report_id', 'N/A')} could not be verified.")
         
         return {"status": status, "articles": corroborating_articles}

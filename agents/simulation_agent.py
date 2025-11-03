@@ -15,7 +15,7 @@ class SimulationAgent(Agent):
             hazards = await asyncio.to_thread(self.simulation_tool.use, num_readings=5)
 
             for hazard in hazards:
-                print(f"Agent {self.name} detected hazard: {hazard["hazard"]}")
+                print(f"Agent {self.name} detected hazard: {hazard['hazard']}")
                 await self.publish("hazard_alert", hazard)
             
             await asyncio.sleep(60) # Run simulation every minute

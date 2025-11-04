@@ -1,95 +1,160 @@
-# MineGuard AI: A Multi-Agent System for Proactive Mine Safety Analysis
+# 🛡️ MineGuard AI: A Multi-Agent System for Proactive Mine Safety Analysis (CyberLabs IIT-ISM) 
 
-**An intelligent, autonomous system for monitoring, analyzing, and reporting on mine safety incidents across India to prevent future accidents.**
-
----
-
-## The Problem
-
-Mine safety is a critical issue in India, with hundreds of accidents occurring annually, leading to tragic loss of life and injury. The Directorate General of Mines Safety (DGMS) and news outlets report on these incidents, but the data is often:
-
-- **Unstructured and Disparate**: Published as PDFs, HTML tables, and news articles with no consistent format.
-- **Difficult to Aggregate**: Manually collecting and consolidating data from various sources is slow, inefficient, and prone to error.
-- **Hard to Query**: There is no centralized, searchable database, making it nearly impossible to perform trend analysis or get quick answers about specific locations or incident types.
-
-This information latency means that valuable insights that could prevent future accidents are often buried in paperwork and disconnected reports.
-
-## Our Solution: MineGuard AI
-
-MineGuard AI is a sophisticated, multi-agent system that automates the entire mine safety data pipeline. It transforms raw, unstructured data into a structured, queryable knowledge base and provides a natural language interface for real-time analysis.
-
-Our system autonomously performs:
-1.  **Data Ingestion**: Scrapes DGMS reports and news articles.
-2.  **Intelligent Structuring**: Uses AI to parse unstructured text and PDFs into a clean, JSON-like format.
-3.  **Data Enrichment**: Intelligently fills in missing information, such as mapping ambiguous incident descriptions to official DGMS cause codes using vector similarity search.
-4.  **Conversational Access**: Allows stakeholders to ask complex questions in plain English via a simple API.
-
-This turns a reactive, manual process into a proactive, data-driven approach to improving mine safety.
+> **An intelligent, autonomous system for monitoring, analyzing, and reporting on mine safety incidents across India — turning unstructured reports into actionable intelligence.**
 
 ---
 
-## System Architecture
+## 🚨 The Problem
 
-MineGuard AI is built on a **multi-agent architecture**, where independent agents collaborate asynchronously through a central **Message Bus**. This design allows for a scalable and resilient system where different tasks (e.g., scraping, analysis, user interaction) run concurrently without blocking each other.
+Mine safety remains a **critical challenge** in India, with hundreds of accidents occurring each year. Despite extensive reporting by the **Directorate General of Mines Safety (DGMS)** and news agencies, current data dissemination faces major issues:
 
+- 🧾 **Unstructured & Disparate** — Reports are often published as PDFs, HTML tables, or unformatted news articles.  
+- 🧩 **Difficult to Aggregate** — Manual data collection is slow, inconsistent, and error-prone.  
+- 🔍 **Hard to Query** — No unified database exists for performing queries, trend analysis, or real-time insights.
 
-
-
-### Core Components:
-
-1.  **Agents (`agent.py`)**: The heart of the system.
-    -   `DGMSMonitorAgent` & `NewsScannerAgent`: The data collectors. They watch their respective sources and publish new findings to the message bus.
-    -   `IncidentAnalysisAgent`: The data processor. It subscribes to messages from the collectors, uses AI tools to parse and enrich the data, and upserts the structured result into MongoDB.
-    -   `ConversationalAgent`: The brain. It listens for user queries, performs Retrieval-Augmented Generation (RAG) by fetching context from both MongoDB and a ChromaDB vector store, and generates a comprehensive answer.
-
-2.  **Flask API (`app.py`)**: A lightweight server that exposes the system's capabilities via a REST API, primarily the `/api/chatbot` endpoint for frontend integration.
-
-3.  **Databases**:
-    -   **MongoDB**: The primary data store for all structured incident reports.
-    -   **ChromaDB**: A vector database used for semantic search and our innovative cause-code mapping.
+This results in **information latency**, where insights that could prevent accidents are buried in paperwork and fragmented reports.
 
 ---
 
-## Technical Innovations & Features
+## 🤖 The Solution: MineGuard AI
+
+**MineGuard AI** is a **multi-agent, AI-driven system** that automates the full lifecycle of mine safety data — from ingestion to analysis and conversational access.
+
+It autonomously performs:
+
+1. **Data Ingestion** — Scrapes DGMS and news reports.  
+2. **Intelligent Structuring** — Converts unstructured text/PDFs into structured JSON data.  
+3. **Data Enrichment** — Maps missing or vague entries to official DGMS codes using AI-powered semantic matching.  
+4. **Conversational Querying** — Enables natural-language interaction for trend analysis, summaries, and Q&A.  
+5. **Accident Pattern Analysis** — Uses historical data to analyze seasonal, temporal, and geographical trends in accidents.  
+6. **Proactive Alert Generation** — Continuously monitors new reports to generate early alerts for high-risk patterns.  
+
+This transforms a **reactive** manual process into a **proactive**, AI-powered safety intelligence system.
+
+---
+
+## 🧠 System Architecture
+
+MineGuard AI follows a **multi-agent architecture** — a distributed, asynchronous design where each agent performs specialized tasks and communicates through a central **Message Bus**.
+
+### ⚙️ Core Components
+
+| Component | Role |
+|------------|------|
+| 🕵️‍♂️ **DGMSMonitorAgent** | Collects reports from the official DGMS website |
+| ⚙️ **NewsScannerAgent** | Collects and publishes incident data from official and media sources |
+| 🧩 **IncidentAnalysisAgent** | Parses, enriches, and analyzes incident data using AI; acts as the system’s control center |
+| 💬 **ConversationalAgent** | Handles user queries using RAG (Retrieval-Augmented Generation) |
+| 📊 **AccidentAnalysisModule** | Performs seasonal, temporal, and cause-based accident trend analysis |
+| 🚨 **AlertGenerator** | Detects high-risk patterns (e.g., repeated methane explosions in a specific region) and generates alerts |
+| 🌐 **Flask API (`app.py`)** | Exposes endpoints (e.g., `/api/chatbot`, `/api/alerts`) for frontend and API access |
+| 🗃️ **MongoDB** | Stores structured incident data |
+| 🧠 **ChromaDB** | Handles vector embeddings and semantic search for cause-code mapping |
+
+All agents interact with each other using A2A protocol with **IncidentAnalysisAgent** as the main control centre of the system.
+
+---
+
+## ⚡ Technical Innovations & Features
 
 ### 1. AI-Powered Cause Code Mapping
 
-A standout feature of our system is its ability to map messy, free-text descriptions of an incident (e.g., *"a worker was hit by a falling rock"*) to a precise, official DGMS cause code (e.g., *"1.1 - Fall of roof"*).
+Automatically maps free-text causes like  
+> “Landslide”  
+to an official DGMS code like  
+> **0118 — Landslide**
 
--   **How it Works**: We pre-load a ChromaDB vector store with embeddings of all official DGMS cause code descriptions. When a new incident arrives, we embed its free-text `brief_cause` and perform a similarity search against the vector store to find the most semantically relevant code. This is far more accurate than simple keyword matching.
+**How it Works:**
+- Preloads DGMS cause-code descriptions into a **ChromaDB vector store**  
+- Embeds each new incident’s description  
+- Performs **semantic similarity search** to find the most relevant DGMS code  
 
-### 2. Retrieval-Augmented Generation (RAG) for Q&A
-
-Our chatbot doesn't just guess answers; it finds them. When a user asks a question:
-
-1.  The query is contextualized and used to fetch relevant documents from MongoDB (for structured data) and ChromaDB (for semantic matches).
-2.  This retrieved "context" is injected directly into the prompt sent to the language model.
-3.  The model uses this context to synthesize a factually grounded, accurate answer, complete with details from the source documents.
-
-### 3. Asynchronous Multi-Agent System
-
-The use of an agent-based framework with a message bus allows for high throughput and scalability. The system can be scraping new data, analyzing an incident, and answering a user query all at the same time, without any process blocking another.
+✅ *More accurate and context-aware than keyword-based methods.*
 
 ---
 
-## Tech Stack
+### 2. Retrieval-Augmented Generation (RAG) for Q&A
 
--   **Backend**: Python, Flask
--   **AI/ML**: LangChain, Google Generative AI (for embeddings and generation)
--   **Databases**: MongoDB (Primary), ChromaDB (Vector Store)
--   **Data Processing**: PyPDF, BeautifulSoup, Pandas
--   **Core Framework**: Custom Multi-Agent System with `asyncio`
+MineGuard AI’s chatbot delivers **factually grounded** responses.
 
-## Setup and Installation
+**Pipeline:**
+1. User query → contextualized and used to retrieve relevant documents  
+2. Data fetched from **MongoDB (structured)** and **ChromaDB (semantic)**  
+3. Retrieved context → injected into the LLM prompt for accurate synthesis  
 
-### Prerequisites
+💡 *Enables data-driven, explainable answers directly from verified sources.*
 
--   Python 3.10+
--   MongoDB instance (local or a cloud service like MongoDB Atlas)
--   `git` for cloning the repository
+---
 
-### 1. Clone the Repository
+### 3. Accident Pattern Analysis
+
+The **AccidentAnalysisModule** provides insights into:
+- ⏳ **Temporal Trends:** Accidents by month, season, or year  
+- 🌦️ **Seasonal Correlation:** Detects higher risks during specific weather conditions  
+- 📍 **Geographical Patterns:** Hotspot regions prone to certain types of accidents  
+- ⚙️ **Cause Distribution:** Frequent causes by mine type and state  
+
+🧩 *Also provides recommendations to avoid accidents using historical data Helps decision-makers predict and mitigate risks before they escalate.*
+
+---
+
+### 4. Proactive Alert Generation
+
+The **AlertGenerator** continuously scans new incidents for:
+- Recurrent patterns (e.g., repeated gas explosions in the same region)  
+- Seasonal spikes in accident frequency  
+- Sudden anomalies in causes or severity  
+
+⚠️ When thresholds are breached, **MineGuard AI** automatically generates alerts and stores them in MongoDB for dashboard visualization or email notifications.
+
+---
+
+### 5. Asynchronous Multi-Agent System
+
+Each agent runs independently via `asyncio`, enabling:
+- Concurrent scraping, analysis, and Q&A  
+- High throughput and scalability  
+- Fault-tolerant design (agents can restart independently)
+
+---
+
+## 🧰 Tech Stack
+
+| Layer | Tools & Technologies |
+|-------|----------------------|
+| **Backend** | Python, Flask, asyncio |
+| **AI/ML** | LangChain, Google Generative AI |
+| **Databases** | MongoDB (Primary), ChromaDB (Vector Store) |
+| **Data Processing** | PyPDF, BeautifulSoup, Pandas |
+| **Architecture** | Custom Multi-Agent System |
+
+---
+
+## 🚀 Setup & Installation
+
+### 🧱 Prerequisites
+- Python **3.10+**
+- **MongoDB** instance (local or MongoDB Atlas)
+- `git` for cloning
+
+### 🔧 Steps
 
 ```bash
-git clone <your-repository-url>
+# 1. Clone the repository
+git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
 cd Mine-Safety-Analysis
+
+# 2. Create a virtual environment
+python3 -m venv venv
+source venv/bin/activate   # (Linux/Mac)
+venv\Scripts\activate      # (Windows)
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment variables (MongoDB URI, API keys, etc.)
+cp .env.example .env
+# Edit .env with your configurations
+
+# 5. Run the Flask server
+python app.py

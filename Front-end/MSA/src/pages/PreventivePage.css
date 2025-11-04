@@ -1,0 +1,305 @@
+/* Preventive Page Styles */
+.preventive-page {
+  padding: 120px 20px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Summary Cards */
+.summary-cards {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.summary-item {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.summary-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--mine-copper);
+}
+
+.summary-text {
+  font-size: 14px;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+/* Regions */
+.regions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  margin-bottom: 60px;
+}
+
+.region-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.region-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.region-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.region-info h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--mine-brown);
+}
+
+.risk-badge {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.risk-badge.risk-high {
+  background: rgba(216, 67, 21, 0.1);
+  color: var(--alert-fire);
+}
+
+.risk-badge.risk-medium {
+  background: rgba(245, 124, 0, 0.1);
+  color: var(--alert-warning);
+}
+
+.risk-badge.risk-low {
+  background: rgba(85, 139, 47, 0.1);
+  color: var(--alert-safe);
+}
+
+.primary-concern {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: right;
+}
+
+.concern-label {
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.concern-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mine-copper);
+}
+
+/* Measures Grid */
+.measures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.measure-card {
+  background: rgba(245, 235, 224, 0.5);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.measure-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.measure-header h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--mine-brown);
+  flex: 1;
+}
+
+.priority-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.priority-critical {
+  background: rgba(216, 67, 21, 0.15);
+  color: var(--alert-fire);
+}
+
+.priority-high {
+  background: rgba(245, 124, 0, 0.15);
+  color: var(--alert-warning);
+}
+
+.priority-medium {
+  background: rgba(184, 115, 51, 0.15);
+  color: var(--mine-copper);
+}
+
+.measure-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.measure-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.detail-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: right;
+  flex: 1;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-active {
+  background: rgba(85, 139, 47, 0.1);
+  color: var(--alert-safe);
+}
+
+.status-progress {
+  background: rgba(245, 124, 0, 0.1);
+  color: var(--alert-warning);
+}
+
+.status-planned {
+  background: rgba(139, 90, 60, 0.1);
+  color: var(--mine-rust);
+}
+
+.status-ongoing {
+  background: rgba(184, 115, 51, 0.1);
+  color: var(--mine-copper);
+}
+
+/* Best Practices */
+.best-practices {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.best-practices h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--mine-brown);
+  margin-bottom: 24px;
+}
+
+.practices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.practice-card {
+  background: rgba(245, 235, 224, 0.5);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.practice-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.practice-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mine-brown);
+  margin-bottom: 10px;
+}
+
+.practice-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .preventive-page {
+    padding: 100px 16px 60px;
+  }
+  
+  .summary-cards {
+    flex-direction: column;
+  }
+  
+  .region-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .primary-concern {
+    text-align: left;
+  }
+  
+  .measures-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .practices-grid {
+    grid-template-columns: 1fr;
+  }
+}

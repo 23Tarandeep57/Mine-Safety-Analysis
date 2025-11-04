@@ -1,0 +1,65 @@
+/* Global Mine Safety Theme - Opencast Mine Color Palette */
+:root {
+  /* Primary Earth Tones */
+  --mine-brown: #4a3728;
+  --mine-rust: #8b5a3c;
+  --mine-copper: #b87333;
+  --mine-clay: #c19a6b;
+  --mine-stone: #6b5d54;
+  
+  /* Secondary Colors */
+  --mine-earth: #5c4033;
+  --mine-sand: #d2b48c;
+  --mine-dust: #e8d4b8;
+  --mine-light: #f5ebe0;
+  
+  /* Alert Colors */
+  --alert-fire: #d84315;
+  --alert-warning: #f57c00;
+  --alert-caution: #ffa726;
+  --alert-safe: #558b2f;
+  
+  /* Text Colors */
+  --text-primary: #2c1810;
+  --text-secondary: #5c4033;
+  --text-light: #8b7355;
+  --text-white: #fafaf8;
+  
+  /* UI Elements */
+  --bg-primary: #f5ebe0;
+  --bg-secondary: #e8d4b8;
+  --bg-card: #ffffff;
+  --border-color: #d2b48c;
+  --shadow: rgba(74, 55, 40, 0.15);
+  --shadow-lg: rgba(74, 55, 40, 0.25);
+  
+  /* Overlay */
+  --overlay-dark: rgba(44, 24, 16, 0.8);
+  --glass-blur: rgba(245, 235, 224, 0.7);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(to bottom, var(--mine-light) 0%, var(--mine-dust) 100%);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+#root {
+  min-height: 100vh;
+}

@@ -1,0 +1,137 @@
+/* iOS-like Liquid Navbar */
+.navbar {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 0 20px;
+  width: calc(100% - 40px);
+  max-width: 1400px;
+}
+
+.navbar-container {
+  background: var(--glass-blur);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(210, 180, 140, 0.3);
+  border-radius: 16px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+
+/* Logo */
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mine-brown);
+}
+
+.navbar-logo svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.5;
+  color: var(--mine-copper);
+}
+
+/* Navigation Links */
+.navbar-links {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+}
+
+.navbar-links a {
+  text-decoration: none;
+  color: var(--text-secondary);
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.navbar-links a:hover {
+  color: var(--mine-brown);
+  background: rgba(139, 90, 60, 0.1);
+}
+
+.navbar-links a.active {
+  color: var(--text-white);
+  background: linear-gradient(135deg, var(--mine-rust) 0%, var(--mine-copper) 100%);
+  box-shadow: 0 4px 12px rgba(139, 90, 60, 0.3);
+}
+
+/* Status Indicator */
+.navbar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(85, 139, 47, 0.1);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--alert-safe);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--alert-safe);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.95); }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .navbar-links {
+    gap: 4px;
+  }
+  
+  .navbar-links a {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    top: 10px;
+    width: calc(100% - 20px);
+  }
+  
+  .navbar-container {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .navbar-links {
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  
+  .navbar-links a {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  
+  .navbar-status {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+}

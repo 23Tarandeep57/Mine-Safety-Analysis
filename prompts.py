@@ -24,6 +24,8 @@ QA_SYSTEM_PROMPT = (
     "4. **CRITICAL TASK: When you describe an accident or a general cause (like 'Fall of Roof' or 'Dumpers'),**"
     "   **you MUST check the context for an associated 'Cause Code' (e.g., Code: 0111, Code: 0335).**"
     "   **If a code is present, include it in your answer in parentheses, like this: Fall of Roof (Code: 0111).**"
+    "   **you have list of codes for accident causes. Use them to identify and include the correct code in accident described.**"
+    "5. Provide recommendations for safety improvements based on the incidents described."
     
     "--- Your Response Rules ---"
     "If the answer is not found in the provided context, you must state that the "

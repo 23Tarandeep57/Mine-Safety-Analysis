@@ -19,6 +19,10 @@ class IncidentDetails(BaseModel):
     fatalities: List[Fatality] = []
     injuries: List[Injury] = []
     brief_cause: Optional[str] = None
+    # DGMS cause code mapped from vector store (e.g., '0335'). String to preserve leading zeros.
+    cause_code: Optional[str] = None
+    # Optional normalized category/bucket (heuristic/analysis level).
+    cause_category: Optional[str] = None
 
 class MineDetails(BaseModel):
     name: Optional[str] = None

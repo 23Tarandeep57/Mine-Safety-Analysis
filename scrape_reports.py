@@ -11,6 +11,7 @@ from utility.parser import (
     parse_report_to_schema_heuristic,
 )
 from utility.db import ensure_mongo_collection
+from utility.chatbot_utils import initialize_components
 
 # local constants pulled from config module
 

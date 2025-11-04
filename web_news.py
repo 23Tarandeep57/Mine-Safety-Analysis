@@ -114,13 +114,13 @@ def is_duplicate_article_llm(new_article, existing_articles):
     return False
 
 
-def get_valid_articles(query, desired_count=5):
+def get_valid_articles(query, desired_count=1):
     """Fetch and summarize valid, unique news articles."""
     all_results = []
     seen_urls = set()
     attempts = 0
 
-    while len(all_results) < desired_count and attempts < 5:
+    while len(all_results) < desired_count and attempts < 1:
         attempts += 1
         print(f"\n🔎 Tavily search attempt {attempts} for: {query}")
 
@@ -201,7 +201,7 @@ def analyze_common_patterns(articles):
 
 
 if __name__ == "__main__":
-    final_articles = get_valid_articles("recent coal mining accidents in India", desired_count=5)
+    final_articles = get_valid_articles("recent coal mining accidents in India", desired_count=1)
 
     print("\n\n---Final Summaries ---\n")
     for i, a in enumerate(final_articles, 1):

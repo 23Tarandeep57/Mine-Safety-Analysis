@@ -27,7 +27,7 @@ class MonitorWebsiteTool:
             return []
 
         new_reports = []
-        for link in links:
+        for link in links[:5]:
             report_id = self.get_report_id_from_link(link)
 
             if report_id and not self.is_report_in_db(coll, report_id):

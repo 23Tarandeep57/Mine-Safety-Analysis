@@ -4,7 +4,7 @@ from utility.agent_framework import MessageBus, Agent
 from agents.news_scanner_agent import NewsScannerAgent
 from agents.dgms_monitor_agent import DGMSMonitorAgent
 from agents.incident_analysis_agent import IncidentAnalysisAgent
-from agents.simulation_agent import SimulationAgent
+
 from agents.conversational_agent import ConversationalAgent
 from utility.local_search import google_web_search
 from utility.chatbot_utils import load_api_key, initialize_components, create_manual_chains
@@ -24,7 +24,7 @@ async def main():
         NewsScannerAgent("news_scanner", message_bus),
         DGMSMonitorAgent("dgms_monitor", message_bus),
         IncidentAnalysisAgent("incident_analysis", message_bus, google_web_search, llm, vector_store, mongo_collection, contextualize_q_chain, qa_chain),
-        SimulationAgent("simulation", message_bus),
+
         ConversationalAgent("conversational_agent", message_bus),
     ]
 

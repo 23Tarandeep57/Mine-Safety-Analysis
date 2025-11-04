@@ -95,7 +95,7 @@ def filter_last_months(docs: Iterable[Dict[str, Any]], months: int = 6):
 
 
 def embed_texts(texts: List[str], model_name: str = "all-MiniLM-L6-v2") -> np.ndarray:
-    model = SentenceTransformer(model_name)
+    model = SentenceTransformer(model_name, device='cpu')
     return model.encode(texts, show_progress_bar=False, convert_to_numpy=True, normalize_embeddings=True)
 
 

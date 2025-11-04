@@ -19,12 +19,16 @@ import os
 from typing import Any, Dict
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError, PyMongoError
+from dotenv import load_dotenv
 
+from find_cause_code import FindCauseCodeTool
+
+load_dotenv()
+
+# --- Constants from config ---
 MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DB = os.environ.get("MONGODB_DB", "mine_safety")
 MONGODB_COLLECTION = os.environ.get("MONGODB_COLLECTION", "dgms_reports")
-
-from find_cause_code import FindCauseCodeTool
 
 
 def get_collection():

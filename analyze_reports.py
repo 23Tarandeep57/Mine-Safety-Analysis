@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 from pymongo import MongoClient
+import certifi
 from utility.config import MONGODB_URI, MONGODB_DB, MONGODB_COLLECTION, DATA_DIR
 from utility.analysis import make_advanced_report, render_narrative
 
@@ -14,7 +15,7 @@ def analyze_all_reports():
     min_samples = os.environ.get("HDBSCAN_MIN_SAMPLES")
     min_samples = int(min_samples) if min_samples is not None and min_samples != "" else None
 
-    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000)
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000, tlsCAFile=certifi.where())
     coll = client[MONGODB_DB][MONGODB_COLLECTION]
     docs = list(coll.find({}))
 

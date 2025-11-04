@@ -1,5 +1,6 @@
 
 from pymongo import MongoClient
+import certifi
 from datetime import datetime, timedelta
 from utility.config import MONGODB_URI, MONGODB_DB, MONGODB_COLLECTION
 
@@ -7,7 +8,7 @@ class CheckIncidentInDBTool:
     def __init__(self):
         self.name = "check_incident_in_db"
         self.description = "Checks if a similar incident already exists in the database."
-        self.client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000)
+        self.client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000, tlsCAFile=certifi.where())
         self.coll = self.client[MONGODB_DB][MONGODB_COLLECTION]
 
     def use(self, incident: dict) -> bool:

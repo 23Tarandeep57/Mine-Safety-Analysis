@@ -8,6 +8,7 @@ beautifulsoup4
 tavily
 pymongo
 certifi
+unstructured[pdf]
 
 # LangChain + Groq integration
 langchain

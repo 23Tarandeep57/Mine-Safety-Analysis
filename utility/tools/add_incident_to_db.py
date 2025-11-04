@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+import certifi
 from datetime import datetime, timezone
 from utility.config import MONGODB_URI, MONGODB_DB, MONGODB_COLLECTION
 from schemas import Report, MineDetails, IncidentDetails, Verification
@@ -16,7 +17,7 @@ class AddIncidentToDBTool:
     def __init__(self):
         self.name = "add_incident_to_db"
         self.description = "Adds a new incident to the database."
-        self.client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000)
+        self.client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000, tlsCAFile=certifi.where())
         self.coll = self.client[MONGODB_DB][MONGODB_COLLECTION]
 
     def use(self, incident: dict, source_url: str, raw_title: str) -> dict:

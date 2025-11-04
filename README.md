@@ -47,7 +47,6 @@ MineGuard AI follows a **multi-agent architecture** — a distributed, asynchron
 | 💬 **ConversationalAgent** | Handles user queries using RAG (Retrieval-Augmented Generation) |
 | 📊 **AccidentAnalysisModule** | Performs seasonal, temporal, and cause-based accident trend analysis |
 | 🚨 **AlertGenerator** | Detects high-risk patterns (e.g., repeated methane explosions in a specific region) and generates alerts |
-| 🌐 **Flask API (`app.py`)** | Exposes endpoints (e.g., `/api/chatbot`, `/api/alerts`) for frontend and API access |
 | 🗃️ **MongoDB** | Stores structured incident data |
 | 🧠 **ChromaDB** | Handles vector embeddings and semantic search for cause-code mapping |
 

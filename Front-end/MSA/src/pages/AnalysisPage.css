@@ -1,0 +1,385 @@
+/* Analysis Page Styles */
+.analysis-page {
+  padding: 120px 20px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.analysis-page::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('/mining_work_planning_in_a_table.jpeg') center/cover no-repeat fixed;
+  opacity: 0.05;
+  z-index: -1;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 50px;
+  padding: 50px;
+  background: linear-gradient(135deg, 
+    rgba(184, 115, 51, 0.12) 0%, 
+    rgba(139, 90, 60, 0.08) 100%);
+  border-radius: 24px;
+  border: 2px solid var(--copper-shine);
+}
+
+.page-header h1 {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--earth-deep) 0%, var(--copper-shine) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.page-header p {
+  font-size: 17px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.section-subtitle {
+  font-size: 15px;
+  color: var(--text-light);
+  margin-top: 8px;
+  margin-bottom: 32px;
+}
+
+/* Pattern Detail Cards */
+.patterns-container {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin-bottom: 60px;
+}
+
+.pattern-detail-card {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.98) 0%, 
+    rgba(245, 235, 224, 0.95) 100%);
+  border: 2px solid var(--copper-shine);
+  border-radius: 24px;
+  padding: 36px;
+  box-shadow: 0 12px 36px rgba(74, 55, 40, 0.2);
+  transition: all 0.3s ease;
+}
+
+.pattern-detail-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(74, 55, 40, 0.3);
+  border-color: var(--golden-brown);
+}
+
+.pattern-overview h2 {
+  font-size: 28px;
+  font-weight: 800;
+  color: black;
+  background: linear-gradient(135deg, var(--earth-deep) 0%, var(--mine-rust) 100%);
+  -webkit-background-clip: text;
+  /* -webkit-text-fill-color: transparent; */
+  background-clip: text;
+  margin-bottom: 24px;
+}
+
+.pattern-metrics {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 28px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mine-copper);
+}
+
+.metric.trend.trend-up .metric-value {
+  color: var(--alert-fire);
+}
+
+.metric.trend.trend-down .metric-value {
+  color: var(--alert-safe);
+}
+
+.metric.trend.trend-stable .metric-value {
+  color: var(--mine-rust);
+}
+
+.metric-label {
+  font-size: 13px;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+/* Subcategories */
+.subcategories {
+  border-top: 1px solid var(--border-color);
+  padding-top: 24px;
+}
+
+.subcategories h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mine-brown);
+  margin-bottom: 16px;
+}
+
+.subcategory-item {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.subcategory-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subcategory-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.subcategory-count {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.subcategory-bar {
+  height: 28px;
+  background: linear-gradient(90deg, 
+    rgba(210, 180, 140, 0.3) 0%, 
+    rgba(193, 154, 107, 0.4) 100%);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.subcategory-fill {
+  height: 100%;
+  background: linear-gradient(90deg, 
+    var(--rust-deep) 0%, 
+    var(--copper-shine) 50%, 
+    var(--golden-brown) 100%);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(184, 115, 51, 0.4);
+  transition: width 0.6s ease;
+}
+
+.subcategory-percent {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mine-copper);
+  min-width: 45px;
+  text-align: right;
+}
+
+/* Comparison Chart */
+.comparison-section {
+  margin-bottom: 60px;
+}
+
+.comparison-section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mine-brown);
+  margin-bottom: 8px;
+}
+
+.comparison-chart {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.chart-legend {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-dot.equipment {
+  background: var(--mine-copper);
+}
+
+.legend-dot.ventilation {
+  background: var(--mine-rust);
+}
+
+.legend-dot.human {
+  background: var(--mine-clay);
+}
+
+.legend-dot.structural {
+  background: var(--mine-stone);
+}
+
+.chart-bars {
+  display: flex;
+  gap: 40px;
+  justify-content: space-around;
+  padding: 20px 0;
+}
+
+.quarter-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.bars-stack {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  height: 300px;
+}
+
+.bar {
+  width: 50px;
+  border-radius: 6px 6px 0 0;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+  min-height: 40px;
+}
+
+.bar.equipment {
+  background: var(--mine-copper);
+}
+
+.bar.ventilation {
+  background: var(--mine-rust);
+}
+
+.bar.human {
+  background: var(--mine-clay);
+}
+
+.bar.structural {
+  background: var(--mine-stone);
+}
+
+.bar-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+}
+
+.quarter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Insights */
+.insights-section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mine-brown);
+  margin-bottom: 24px;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.insight-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--mine-copper);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.insight-box h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mine-brown);
+  margin-bottom: 12px;
+}
+
+.insight-box p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .analysis-page {
+    padding: 100px 16px 60px;
+  }
+  
+  .pattern-metrics {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .subcategory-item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .subcategory-percent {
+    text-align: left;
+  }
+  
+  .chart-bars {
+    gap: 20px;
+    overflow-x: auto;
+  }
+  
+  .bars-stack {
+    height: 200px;
+  }
+  
+  .bar {
+    width: 40px;
+  }
+  
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -5,6 +5,7 @@ from dateutil import parser as dateparse
 from .llm import get_llm
 from .config import GROQ_API_KEY
 from .tools.find_cause_code import FindCauseCodeTool
+from .tools.find_place_of_accident_code import FindPlaceOfAccidentCodeTool
 
 def _normalize_text_for_parsing(text: str) -> str:
     text = re.sub(r"\x00", " ", text)
@@ -170,9 +171,6 @@ def parse_report_to_schema_heuristic(text: str, source_url: str, title: str) -> 
     brief_cause = parsed.get("brief_cause")
     best_practices = parsed.get("recs", [])
 
-    find_cause_code_tool = FindCauseCodeTool()
-    cause_code = find_cause_code_tool.use(brief_cause)
-
     doc = {
         "report_id": report_id,
         "date_reported": date_reported,
@@ -183,7 +181,6 @@ def parse_report_to_schema_heuristic(text: str, source_url: str, title: str) -> 
             "fatalities": fatalities,
             "injuries": injuries,
             "brief_cause": brief_cause,
-            "cause_code": cause_code,
         },
         "best_practices": best_practices,
         "source_url": source_url,
@@ -252,12 +249,6 @@ def parse_report_to_schema_llm(text: str, source_url: str, title: str) -> dict |
         data.setdefault("best_practices", [])
         data["_raw_title"] = title
         data["_raw_text"] = text[:6000]
-
-        # Add cause_code
-        brief_cause = data.get("incident_details", {}).get("brief_cause")
-        find_cause_code_tool = FindCauseCodeTool()
-        cause_code = find_cause_code_tool.use(brief_cause)
-        data["incident_details"]["cause_code"] = cause_code
 
         return data
     except Exception:

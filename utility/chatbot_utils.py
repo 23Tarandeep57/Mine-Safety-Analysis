@@ -110,7 +110,6 @@ Real-time Report ID: {doc.get('report_id')}
 Mine: {doc.get('mine_details', {}).get('name')}, {doc.get('mine_details', {}).get('owner')}
 Accident Date: {doc.get('accident_date')}
 Cause: {doc.get('incident_details', {}).get('brief_cause')}
-Cause Code: {doc.get('incident_details', {}).get('cause_code')}
 Summary: {doc.get('summary')}
 Best Practices/How to Avert: {', '.join(doc.get('best_practices', []))}
 Verification: {doc.get('verification', {}).get('status')}

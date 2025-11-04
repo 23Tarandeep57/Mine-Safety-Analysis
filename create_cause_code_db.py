@@ -27,6 +27,9 @@ def main():
     loader = PyPDFLoader(PDF_PATH)
     documents = loader.load()
 
+   
+    documents = [doc for doc in documents if doc.metadata.get("page") in [26,27]]
+
     print(f"Splitting {len(documents)} pages into chunks...")
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(documents)

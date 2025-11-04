@@ -18,7 +18,6 @@ if not MONGO_CONNECTION_STRING:
 compound_text_index = [
     ("mine_details.name", "text"),
     ("incident_details.brief_cause", "text"),
-    ("incident_details.cause_code", "text"),
     ("best_practices", "text"),
     ("summary", "text"),
     ("_raw_title", "text")

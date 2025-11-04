@@ -11,6 +11,7 @@ from utility.tools.analyze_incident_patterns import AnalyzeIncidentPatternsTool
 from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
 from utility.tools.generate_audit_report import GenerateAuditReportTool
 from utility.tools.search_cause_code_db import SearchCauseCodeDBTool
+from utility.tools.find_place_of_accident_code import FindPlaceOfAccidentCodeTool
 from utility.config import DATA_DIR
 import json
 import inspect
@@ -57,6 +58,7 @@ class IncidentAnalysisAgent(Agent):
         self.generate_alerts_tool = GenerateSafetyAlertsTool()
         self.generate_audit_tool = GenerateAuditReportTool()
         self.search_cause_code_db_tool = SearchCauseCodeDBTool()
+        self.find_place_of_accident_code_tool = FindPlaceOfAccidentCodeTool()
         self.news_article_graph = self._build_news_article_graph()
         self.dgms_report_graph = self._build_dgms_report_graph()
         self.subscribe("new_news_article", self.handle_news_article)
@@ -297,7 +299,8 @@ class IncidentAnalysisAgent(Agent):
             retrieve_chroma = loop.run_in_executor(None, retrieve_from_chroma, self.vector_store, standalone_question)
             retrieve_mongo = loop.run_in_executor(None, retrieve_from_mongodb, self.mongo_collection, standalone_question)
             search_cause_code = loop.run_in_executor(None, self.search_cause_code_db_tool.use, standalone_question)
-            scored_chroma_docs, mongo_contexts, cause_code_context = await asyncio.gather(retrieve_chroma, retrieve_mongo, search_cause_code)
+            search_place_of_accident_code = loop.run_in_executor(None, self.find_place_of_accident_code_tool.use, standalone_question)
+            scored_chroma_docs, mongo_contexts, cause_code_context, place_of_accident_code_context = await asyncio.gather(retrieve_chroma, retrieve_mongo, search_cause_code, search_place_of_accident_code)
 
             print(f"[{self.name}] Retrieved {len(scored_chroma_docs)} chroma docs and {len(mongo_contexts)} mongo contexts.")
 
@@ -313,7 +316,8 @@ class IncidentAnalysisAgent(Agent):
             combined_context = (
                 f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
                 f"--- Real-time Data (Live) ---\n{mongo_context_str}\n\n"
-                f"--- Cause Code Data ---\n{cause_code_context}"
+                f"--- Cause Code Data ---\n{cause_code_context}\n\n"
+                f"--- Place of Accident Code Data ---\n{place_of_accident_code_context}"
             )
             
             # --- !! KEY CHANGE !! ---

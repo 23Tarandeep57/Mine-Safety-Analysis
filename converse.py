@@ -6,7 +6,7 @@ from utility.config import DATA_DIR
 USER_QUERY_FILE = DATA_DIR / "user_query.txt"
 BOT_RESPONSE_FILE = DATA_DIR / "bot_response.txt"
 EOS_TOKEN = "<EOS>"  # A special token to signal the end of the stream
-WAIT_TIMEOUT = 60  # seconds
+WAIT_TIMEOUT = 120  # seconds
 
 def main():
     """Main function to run the chatbot."""

@@ -3,6 +3,48 @@
   padding: 120px 20px 80px;
   max-width: 1400px;
   margin: 0 auto;
+  position: relative;
+}
+
+.analysis-page::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('/mining_work_planning_in_a_table.jpeg') center/cover no-repeat fixed;
+  opacity: 0.05;
+  z-index: -1;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 50px;
+  padding: 50px;
+  background: linear-gradient(135deg, 
+    rgba(184, 115, 51, 0.12) 0%, 
+    rgba(139, 90, 60, 0.08) 100%);
+  border-radius: 24px;
+  border: 2px solid var(--copper-shine);
+}
+
+.page-header h1 {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--earth-deep) 0%, var(--copper-shine) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.page-header p {
+  font-size: 17px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .section-subtitle {
@@ -21,18 +63,31 @@
 }
 
 .pattern-detail-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 28px;
-  box-shadow: 0 4px 12px var(--shadow);
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.98) 0%, 
+    rgba(245, 235, 224, 0.95) 100%);
+  border: 2px solid var(--copper-shine);
+  border-radius: 24px;
+  padding: 36px;
+  box-shadow: 0 12px 36px rgba(74, 55, 40, 0.2);
+  transition: all 0.3s ease;
+}
+
+.pattern-detail-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(74, 55, 40, 0.3);
+  border-color: var(--golden-brown);
 }
 
 .pattern-overview h2 {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--mine-brown);
-  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: 800;
+  color: black;
+  background: linear-gradient(135deg, var(--earth-deep) 0%, var(--mine-rust) 100%);
+  -webkit-background-clip: text;
+  /* -webkit-text-fill-color: transparent; */
+  background-clip: text;
+  margin-bottom: 24px;
 }
 
 .pattern-metrics {
@@ -110,16 +165,24 @@
 }
 
 .subcategory-bar {
-  height: 24px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
+  height: 28px;
+  background: linear-gradient(90deg, 
+    rgba(210, 180, 140, 0.3) 0%, 
+    rgba(193, 154, 107, 0.4) 100%);
+  border-radius: 14px;
   overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .subcategory-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--mine-rust) 0%, var(--mine-copper) 100%);
-  border-radius: 12px;
+  background: linear-gradient(90deg, 
+    var(--rust-deep) 0%, 
+    var(--copper-shine) 50%, 
+    var(--golden-brown) 100%);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(184, 115, 51, 0.4);
+  transition: width 0.6s ease;
 }
 
 .subcategory-percent {

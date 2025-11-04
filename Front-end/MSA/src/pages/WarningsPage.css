@@ -3,6 +3,107 @@
   padding: 120px 20px 80px;
   max-width: 1400px;
   margin: 0 auto;
+  position: relative;
+}
+
+.warnings-page::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('/opencast_mine_man.jpeg') center/cover no-repeat fixed;
+  opacity: 0.12;
+  z-index: -1;
+  filter: grayscale(20%);
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 50px;
+  padding: 60px;
+  background: linear-gradient(135deg, 
+    rgba(230, 81, 0, 0.95) 0%, 
+    rgba(239, 108, 0, 0.9) 35%,
+    rgba(245, 124, 0, 0.85) 70%,
+    rgba(255, 152, 0, 0.8) 100%);
+  border-radius: 28px;
+  border: 4px solid #ff6f00;
+  box-shadow: 
+    0 25px 80px rgba(255, 111, 0, 0.5),
+    0 0 100px rgba(255, 111, 0, 0.35),
+    inset 0 0 100px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  animation: warningPulse 3s ease-in-out infinite;
+}
+
+@keyframes warningPulse {
+  0%, 100% { box-shadow: 
+    0 25px 80px rgba(255, 111, 0, 0.5),
+    0 0 100px rgba(255, 111, 0, 0.35),
+    inset 0 0 100px rgba(0, 0, 0, 0.3);
+  }
+  50% { box-shadow: 
+    0 30px 100px rgba(255, 111, 0, 0.7),
+    0 0 120px rgba(255, 111, 0, 0.5),
+    inset 0 0 100px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.page-header::before {
+  content: '⚡';
+  position: absolute;
+  font-size: 200px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.08;
+  animation: rotate 15s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.page-header h1 {
+  font-size: 58px;
+  font-weight: 900;
+  color: #fff;
+  margin-bottom: 18px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  position: relative;
+  z-index: 1;
+  text-shadow: 
+    0 0 30px rgba(255, 152, 0, 0.8),
+    3px 3px 0px rgba(0, 0, 0, 0.5),
+    5px 5px 20px rgba(0, 0, 0, 0.8);
+  animation: warningGlow 3s ease-in-out infinite;
+}
+
+@keyframes warningGlow {
+  0%, 100% { text-shadow: 
+    0 0 30px rgba(255, 152, 0, 0.8),
+    3px 3px 0px rgba(0, 0, 0, 0.5),
+    5px 5px 20px rgba(0, 0, 0, 0.8);
+  }
+  50% { text-shadow: 
+    0 0 50px rgba(255, 152, 0, 1),
+    3px 3px 0px rgba(0, 0, 0, 0.5),
+    5px 5px 30px rgba(0, 0, 0, 0.8);
+  }
+}
+
+.page-header p {
+  font-size: 19px;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
 }
 
 .warnings-stats {
@@ -50,13 +151,22 @@
 }
 
 .warning-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 12px var(--shadow);
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.98) 0%, 
+    rgba(245, 235, 224, 0.95) 100%);
+  border: 2px solid var(--mine-sand);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 8px 24px rgba(74, 55, 40, 0.15);
   position: relative;
   overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.warning-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(74, 55, 40, 0.25);
+  border-color: var(--copper-shine);
 }
 
 .warning-card::before {
@@ -64,16 +174,18 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 5px;
+  width: 6px;
   height: 100%;
 }
 
 .warning-card.severity-high::before {
-  background: var(--alert-warning);
+  background: linear-gradient(180deg, var(--alert-warning) 0%, #e65100 100%);
+  box-shadow: 0 0 20px rgba(245, 124, 0, 0.5);
 }
 
 .warning-card.severity-medium::before {
-  background: var(--alert-caution);
+  background: linear-gradient(180deg, var(--alert-caution) 0%, #fb8c00 100%);
+  box-shadow: 0 0 20px rgba(255, 167, 38, 0.5);
 }
 
 .warning-header {

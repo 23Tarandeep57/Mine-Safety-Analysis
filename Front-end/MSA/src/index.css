@@ -12,6 +12,13 @@
   --mine-sand: #d2b48c;
   --mine-dust: #e8d4b8;
   --mine-light: #f5ebe0;
+  --mine-dark: #3d2817;
+  
+  /* Rich Accent Colors */
+  --copper-shine: #cd7f32;
+  --rust-deep: #a0522d;
+  --earth-deep: #654321;
+  --golden-brown: #daa520;
   
   /* Alert Colors */
   --alert-fire: #d84315;
@@ -29,6 +36,7 @@
   --bg-primary: #f5ebe0;
   --bg-secondary: #e8d4b8;
   --bg-card: #ffffff;
+  --bg-overlay: rgba(74, 55, 40, 0.85);
   --border-color: #d2b48c;
   --shadow: rgba(74, 55, 40, 0.15);
   --shadow-lg: rgba(74, 55, 40, 0.25);
@@ -36,6 +44,7 @@
   /* Overlay */
   --overlay-dark: rgba(44, 24, 16, 0.8);
   --glass-blur: rgba(245, 235, 224, 0.7);
+  --gradient-overlay: linear-gradient(135deg, rgba(74, 55, 40, 0.9) 0%, rgba(92, 64, 51, 0.85) 100%);
 }
 
 * {
@@ -50,9 +59,23 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(to bottom, var(--mine-light) 0%, var(--mine-dust) 100%);
+  background: linear-gradient(135deg, #2c1810 0%, #4a3728 25%, #5c4033 50%, #6b5d54 75%, #8b5a3c 100%);
+  background-attachment: fixed;
   color: var(--text-primary);
   min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('/International_Mining_on_X.jpeg') center/cover no-repeat fixed;
+  opacity: 0.12;
+  z-index: -1;
+  pointer-events: none;
 }
 
 code {

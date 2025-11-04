@@ -11,33 +11,37 @@
 }
 
 .navbar-container {
-  background: var(--glass-blur);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(210, 180, 140, 0.3);
-  border-radius: 16px;
-  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(25px) saturate(200%);
+  -webkit-backdrop-filter: blur(25px) saturate(200%);
+  border: 2px solid rgba(184, 115, 51, 0.3);
+  border-radius: 18px;
+  padding: 14px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 8px 32px var(--shadow);
+  box-shadow: 0 12px 40px rgba(74, 55, 40, 0.25);
 }
 
 /* Logo */
 .navbar-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--mine-brown);
+  gap: 12px;
+  font-size: 19px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--earth-deep) 0%, var(--copper-shine) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .navbar-logo svg {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   stroke-width: 2.5;
-  color: var(--mine-copper);
+  color: var(--copper-shine);
+  filter: drop-shadow(0 2px 4px rgba(184, 115, 51, 0.3));
 }
 
 /* Navigation Links */
@@ -65,8 +69,11 @@
 
 .navbar-links a.active {
   color: var(--text-white);
-  background: linear-gradient(135deg, var(--mine-rust) 0%, var(--mine-copper) 100%);
-  box-shadow: 0 4px 12px rgba(139, 90, 60, 0.3);
+  background: linear-gradient(135deg, 
+    var(--rust-deep) 0%, 
+    var(--copper-shine) 50%, 
+    var(--golden-brown) 100%);
+  box-shadow: 0 4px 16px rgba(184, 115, 51, 0.4);
 }
 
 /* Status Indicator */
@@ -74,12 +81,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  background: rgba(85, 139, 47, 0.1);
-  border-radius: 10px;
+  padding: 9px 18px;
+  background: rgba(85, 139, 47, 0.15);
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--alert-safe);
+  border: 1px solid rgba(85, 139, 47, 0.3);
 }
 
 .status-dot {

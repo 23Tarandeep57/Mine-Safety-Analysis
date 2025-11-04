@@ -18,4 +18,4 @@ class DGMSMonitorAgent(Agent):
                 print(f"Agent {self.name} found new DGMS report: {report['report_id']}")
                 await self.publish("new_dgms_report", report)
             
-            await asyncio.sleep(300) # Scan every 5 minutes
+            await asyncio.sleep(60) # Scan every 1   minutes

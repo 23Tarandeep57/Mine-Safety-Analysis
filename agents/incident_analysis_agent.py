@@ -10,6 +10,7 @@ from utility.tools.verify_report_with_news import VerifyReportWithNewsTool
 from utility.tools.analyze_incident_patterns import AnalyzeIncidentPatternsTool
 from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
 from utility.tools.generate_audit_report import GenerateAuditReportTool
+from utility.tools.search_cause_code_db import SearchCauseCodeDBTool
 from utility.config import DATA_DIR
 import json
 import inspect
@@ -24,7 +25,7 @@ from datetime import datetime, timezone
 from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
 from langchain_core.messages import HumanMessage, AIMessage
 
-BOT_RESPONSE_FILE = r"C:\Users\mahim\Mine-Safety-Analysis\data\bot_response.txt" # Make sure this path is correct
+BOT_RESPONSE_FILE = DATA_DIR / "bot_response.txt"
 EOS_TOKEN = "<EOS>"
 
 # Define the state for LangGraph
@@ -55,6 +56,7 @@ class IncidentAnalysisAgent(Agent):
         self.analyze_patterns_tool = AnalyzeIncidentPatternsTool()
         self.generate_alerts_tool = GenerateSafetyAlertsTool()
         self.generate_audit_tool = GenerateAuditReportTool()
+        self.search_cause_code_db_tool = SearchCauseCodeDBTool()
         self.news_article_graph = self._build_news_article_graph()
         self.dgms_report_graph = self._build_dgms_report_graph()
         self.subscribe("new_news_article", self.handle_news_article)
@@ -294,7 +296,8 @@ class IncidentAnalysisAgent(Agent):
             loop = asyncio.get_running_loop()
             retrieve_chroma = loop.run_in_executor(None, retrieve_from_chroma, self.vector_store, standalone_question)
             retrieve_mongo = loop.run_in_executor(None, retrieve_from_mongodb, self.mongo_collection, standalone_question)
-            scored_chroma_docs, mongo_contexts = await asyncio.gather(retrieve_chroma, retrieve_mongo)
+            search_cause_code = loop.run_in_executor(None, self.search_cause_code_db_tool.use, standalone_question)
+            scored_chroma_docs, mongo_contexts, cause_code_context = await asyncio.gather(retrieve_chroma, retrieve_mongo, search_cause_code)
 
             print(f"[{self.name}] Retrieved {len(scored_chroma_docs)} chroma docs and {len(mongo_contexts)} mongo contexts.")
 
@@ -309,7 +312,8 @@ class IncidentAnalysisAgent(Agent):
 
             combined_context = (
                 f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
-                f"--- Real-time Data (Live) ---\n{mongo_context_str}"
+                f"--- Real-time Data (Live) ---\n{mongo_context_str}\n\n"
+                f"--- Cause Code Data ---\n{cause_code_context}"
             )
             
             # --- !! KEY CHANGE !! ---
@@ -477,14 +481,17 @@ class IncidentAnalysisAgent(Agent):
                     for alert in alerts:
                         print(f"[{self.name}] Generated Alert: {alert}")
                         await self.publish("safety_alert", {"alert_message": alert})
-            await asyncio.sleep(3600) # Run analysis every hour
+            await asyncio.sleep(900) # Run analysis every 15 minutes
 
     async def _run_periodic_report_generation(self):
         while self.running:
             print(f"[{self.name}] Running periodic audit report generation...")
-            report_path = await asyncio.to_thread(self.generate_audit_tool.use)
-            print(f"[{self.name}] Audit Report: {report_path}")
-            await self.publish("audit_report_generated", {"report_path": report_path})
+            try:
+                report_path = await asyncio.to_thread(self.generate_audit_tool.use)
+                print(f"[{self.name}] Audit Report: {report_path}")
+                await self.publish("audit_report_generated", {"report_path": report_path})
+            except NotImplementedError as e:
+                print(f"[{self.name}] ERROR in _run_periodic_report_generation: {e}")
             await asyncio.sleep(86400) # Generate report every 24 hours
 
     async def run(self):

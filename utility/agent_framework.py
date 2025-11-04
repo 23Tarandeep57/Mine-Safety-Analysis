@@ -19,7 +19,7 @@ class MessageBus:
             message_type = message.get("type")
             if message_type in self.subscriptions:
                 for callback in self.subscriptions[message_type]:
-                    await callback(message)
+                    asyncio.create_task(callback(message))
             self.queue.task_done()
 
 class Agent:

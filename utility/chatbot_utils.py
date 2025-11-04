@@ -18,7 +18,7 @@ load_dotenv()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PERSIST_DIRECTORY = os.path.join(SCRIPT_DIR, "chroma_db")
 EMBEDDING_MODEL = "models/text-embedding-004"
-LLM_MODEL = "models/gemini-pro-latest"
+LLM_MODEL = "models/gemini-2.5-flash"
 
 # --- MongoDB Config ---
 MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
@@ -110,6 +110,7 @@ Real-time Report ID: {doc.get('report_id')}
 Mine: {doc.get('mine_details', {}).get('name')}, {doc.get('mine_details', {}).get('owner')}
 Accident Date: {doc.get('accident_date')}
 Cause: {doc.get('incident_details', {}).get('brief_cause')}
+Cause Code: {doc.get('incident_details', {}).get('cause_code')}
 Summary: {doc.get('summary')}
 Best Practices/How to Avert: {', '.join(doc.get('best_practices', []))}
 Verification: {doc.get('verification', {}).get('status')}

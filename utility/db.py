@@ -1,10 +1,11 @@
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 from .config import MONGODB_URI, MONGODB_DB, MONGODB_COLLECTION
+import certifi
 
 def ensure_mongo_collection():
     try:
-        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000)
+        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000, tlsCAFile=certifi.where())
         db = client[MONGODB_DB]
         coll = db[MONGODB_COLLECTION]
         

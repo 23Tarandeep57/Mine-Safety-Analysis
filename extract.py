@@ -1,7 +1,7 @@
 import os
 import sys
 import glob
-from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 # from langchain_community.vectorstores import Chroma
@@ -30,7 +30,7 @@ all_pages = []
 for pdf_path in pdf_paths:
     print(f"Processing: {os.path.basename(pdf_path)}...")
     try:
-        loader = PyMuPDFLoader(pdf_path)
+        loader = UnstructuredPDFLoader(pdf_path, mode="paged", strategy="ocr_only")
         pages = loader.load()
         all_pages.extend(pages)
         print(f"-> Loaded {len(pages)} pages.")
@@ -49,6 +49,15 @@ text_splitter = RecursiveCharacterTextSplitter(
 )
 chunks = text_splitter.split_documents(all_pages)
 print(f"Split into {len(chunks)} chunks.")
+
+if chunks:
+    print("\n--- Example Chunk (First 500 chars) ---")
+    print(chunks[0].page_content[:500])
+    
+    print("\n--- Metadata of the first chunk ---")
+    print(chunks[0].metadata)
+else:
+    print("No chunks were created. Check your document and splitter settings.")
 
 #Initialize Embeddings
 print("\nInitializing Gemini embedding model...")

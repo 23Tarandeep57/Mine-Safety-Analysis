@@ -1,138 +1,95 @@
 # Mine Safety Analysis - MongoDB Schema
 
-This document specifies the schema for documents stored in the MongoDB collection. These documents are parsed from DGMS Safety Alert PDFs/HTMLs by `mine_safety/parser.py`.
+This document specifies the schema for documents stored in the MongoDB collection. These documents are parsed from DGMS Safety Alert PDFs/HTMLs and news articles.
 
 - Database: `MONGODB_DB` (default: `mine_safety`)
 - Collection: `MONGODB_COLLECTION` (default: `dgms_reports`)
-- Unique index: `{ report_id: 1 }` (if present)
+- Unique index: `{ "metadata.report_id": 1 }`
 
 ## Document Schema
 
+The schema is designed to be flexible to accommodate data from both structured DGMS reports and unstructured news articles.
+
 ```json
 {
-  "_id": "ObjectId",                 // Created by MongoDB
-  "report_id": "SA-21-2025",        // Derived from the alert number/year if found
-  "date_reported": "2025-08-22",    // YYYY-MM-DD, date the alert/report was issued
-  "accident_date": "2025-07-23T02:15:00", // ISO date/time if time known; otherwise YYYY-MM-DD
-  "mine_details": {
-    "name": "Gevra Opencast Mine",
-    "owner": "M/s S.E.C.Ltd.",
+  "_id": "ObjectId",
+  "summary": "A summary of the incident...",
+  "incident_details": {
+    "date_of_incident": "2025-07-23T02:15:00Z",
+    "location": "Gevra Opencast Mine, Haul Road",
     "district": "Korba",
     "state": "Chhattisgarh",
-    "mineral": "Coal"
-  },
-  "incident_details": {
-    "location": "Haul Road (NIT-522 Naraibodh OB Patch), Gevra Project of M/s SECL",
-    "fatalities": [
+    "brief_cause": "A contractual workman was hit by a dumper while crossing the haul road.",
+    "cause_code": "3.2 - Dumper",
+    "place_of_accident": "Belowground",
+    "nature_of_accident": "Struck by object",
+    "type_of_accident": "Fatal",
+    "victim_details": [
       {
         "name": "Shri Rajan Rana Magar",
-        "designation": "Driller’s Helper",
         "age": 25,
-        "experience": "2 months"
+        "sex": "Male",
+        "occupation": "Driller’s Helper",
+        "status": "Fatal"
       }
-    ],
-    "injuries": [],
-    "brief_cause": "A contractual workman (Driller’s helper)..."
+    ]
   },
-  "best_practices": [
-    "Pedestrians shall not be allowed to travel on haul roads...",
-    "A designated place shall be provided on haul roads for crossing.",
-    "Crossing of haul roads may be done only by conveyance vehicles at designated places."
-  ],
-  "source_url": "https://www.dgms.gov.in/.../Fatal_Accident_Gevra_2025.pdf",
-  "summary": "",                     // Intentionally left empty; no summarization needed
-  "created_at": "2025-10-31T19:35:00Z", // UTC timestamp set at ingestion
-
-  "_raw_title": "SAFETY ALERT : 21/2025 ...", // Preserved for auditing/debugging
-  "_raw_text": "...full extracted text..."     // Up to ~6000 chars for storage
+  "actions_taken": {
+    "violations_observed": "Pedestrians were allowed to travel on haul roads.",
+    "recommendations": "Provide designated crossing points for pedestrians on haul roads."
+  },
+  "metadata": {
+    "source_url": "https://www.dgms.gov.in/.../Fatal_Accident_Gevra_2025.pdf",
+    "scraped_at": "2025-11-04T10:00:00Z",
+    "report_id": "DGMS-SA-21-2025",
+    "source_type": "DGMS Report",
+    "_raw_text": "...full extracted text of the report..."
+  },
+  "embeddings": {
+    "summary_embedding": [0.1, 0.2, ...],
+    "full_text_embedding": [0.3, 0.4, ...]
+  }
 }
 ```
 
-Notes:
-- Fields may be empty strings (`""`), nulls (`null`), or empty arrays (`[]`) if information is not present in the source.
-- `report_id` may not be derivable for every document; when absent, upserts will fall back to inserting a new document.
-- `created_at` is set to the UTC time when the document is processed.
+## Field Descriptions
 
-## Field Types
-
-- `report_id`: string
-- `date_reported`: string (YYYY-MM-DD)
-- `accident_date`: string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
-- `mine_details`: object
-  - `name`: string
-  - `owner`: string
-  - `district`: string
-  - `state`: string
-  - `mineral`: string
-- `incident_details`: object
-  - `location`: string
-  - `fatalities`: array of objects
-    - `name`: string
-    - `designation`: string
-    - `age`: integer or null
-    - `experience`: string
-  - `injuries`: array of objects (currently empty in most cases)
-  - `brief_cause`: string
-- `best_practices`: array of strings
-- `source_url`: string (URL)
-- `summary`: string
-- `created_at`: string (ISO8601 UTC)
-- `_raw_title`: string
-- `_raw_text`: string
+- **`summary`** (string): A concise, LLM-generated summary of the incident.
+- **`incident_details`** (object): Detailed structured information about the incident.
+  - **`date_of_incident`** (string, ISO 8601 format): The date when the incident occurred.
+  - **`location`** (string): The specific location of the incident (e.g., "Mine No. 5").
+  - **`district`** (string, optional): The district where the mine is located.
+  - **`state`** (string, optional): The state where the mine is located.
+  - **`brief_cause`** (string): A short, unstructured description of the cause of the incident, extracted directly from the source text.
+  - **`cause_code`** (string, optional): A structured cause code (e.g., "1.1 - Fall of roof") mapped from the `brief_cause` using the cause code vector database.
+  - **`place_of_accident`** (string, optional): A structured code for the place of the accident.
+  - **`nature_of_accident`** (string, optional): A description of the nature of the accident.
+  - **`type_of_accident`** (string, optional): The type of accident.
+  - **`victim_details`** (array of objects): Information about the victims.
+    - **`name`** (string): Name of the victim.
+    - **`age`** (integer): Age of the victim.
+    - **`sex`** (string): Sex of the victim.
+    - **`occupation`** (string): Occupation of the victim.
+    - **`status`** (string): "Fatal" or "Serious".
+- **`actions_taken`** (object): Actions taken after the incident.
+  - **`violations_observed`** (string): Any violations that were observed.
+  - **`recommendations`** (string): Recommendations to prevent future incidents.
+- **`metadata`** (object): Metadata about the document.
+  - **`source_url`** (string): The URL where the report was found.
+  - **`scraped_at`** (string, ISO 8601 format): The timestamp when the data was scraped.
+  - **`report_id`** (string): A unique identifier for the report, often generated from the source.
+  - **`source_type`** (string): "DGMS Report" or "News Article".
+  - **`_raw_text`** (string): The full raw text extracted from the source, stored for archival and re-processing purposes.
+- **`embeddings`** (object, optional): Vector embeddings for the document, used for similarity searches.
+  - **`summary_embedding`** (array of floats): Embedding of the `summary` field.
+  - **`full_text_embedding`** (array of floats): Embedding of the `_raw_text` field.
 
 ## Indexes
 
-- A unique index is created on `report_id` to prevent duplicates when the `report_id` is present:
+- A unique index is created on `metadata.report_id` to prevent duplicate documents.
 
-```js
-// Mongo shell example
-// db.dgms_reports.createIndex({ report_id: 1 }, { unique: true })
+```javascript
+// Mongo shell command to create the index
+db.getCollection('dgms_reports').createIndex({ "metadata.report_id": 1 }, { unique: true, sparse: true });
 ```
-
-## DGMS Report Schema
-
-This document outlines the JSON schema for the parsed DGMS fatal accident reports.
-
-```json
-{
-  "report_id": "SA-21-2025",
-  "date_reported": "2025-08-22",
-  "accident_date": "2025-07-23T02:15:00",
-  "mine_details": {
-    "name": "ABC Mine",
-    "owner": "XYZ Corp",
-    "district": "Singrauli",
-    "state": "Madhya Pradesh",
-    "mineral": "Coal"
-  },
-  "incident_details": {
-    "location": "Near the main shaft",
-    "fatalities": [
-      {
-        "name": "John Doe",
-        "designation": "Miner",
-        "age": 45,
-        "experience": "20 years"
-      }
-    ],
-    "injuries": [],
-    "brief_cause": "Fall of roof in the underground mine."
-  },
-  "best_practices": [
-    "Ensure proper roof support.",
-    "Conduct regular geological surveys."
-  ],
-  "source_url": "https://www.dgms.gov.in/path/to/report.pdf",
-  "summary": "A summary of the report.",
-  "created_at": "2025-11-01T12:00:00Z",
-  "verification": {
-    "status": "verified",
-    "timestamp": "2025-11-01T12:00:00Z",
-    "articles": [
-      "https://www.example.com/news/article1"
-    ]
-  },
-  "_raw_title": "Fatal accident at ABC Mine",
-  "_raw_text": "The full text of the report."
-}
-```
+*Note: The `sparse: true` option ensures the unique constraint only applies to documents that have the `metadata.report_id` field.*

@@ -4,6 +4,12 @@
 
 ---
 
+## 🎥 Demo: Workings of Chatbot in Backend
+
+https://github.com/user-attachments/assets/a9042710-895c-4cb3-8a0e-6bf1fc35e954
+
+---
+
 ## 🧭 Summary (In Brief)
 
 **MineGuard AI** automates the entire mine safety intelligence pipeline — from **data collection and structuring** to **semantic enrichment, analysis, and alert generation**.  

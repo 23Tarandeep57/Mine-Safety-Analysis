@@ -68,8 +68,7 @@ All agents communicate using the **A2A (Agent-to-Agent)** protocol, enabling mod
 ### 1. AI-Powered Cause Code Mapping
 
 Automatically maps free-text causes like  
-> “Landslide”  
-to the official DGMS code  
+> “Landslide” to the official DGMS code  
 > **0118 — Landslide**
 
 **How it Works**
@@ -96,36 +95,36 @@ Provides **factually grounded** Q&A through RAG pipelines:
 
 ### 3. Accident Pattern Analysis
 
-MineGuard AI reveals hidden insights such as:
+The **AccidentAnalysisModule** provides insights into:
+- ⏳ **Temporal Trends:** Accidents by month, season, or year  
+- 🌦️ **Seasonal Correlation:** Detects higher risks during specific weather conditions  
+- 📍 **Geographical Patterns:** Hotspot regions prone to certain types of accidents  
+- ⚙️ **Cause Distribution:** Frequent causes by mine type and state  
 
-- ⏳ **Temporal Trends**
-- 🌦️ **Seasonal Correlations**
-- 📍 **Geographical Hotspots**
-- ⚙️ **Cause Distribution**
+🧩 *Also provides recommendations to avoid accidents using historical data Helps decision-makers predict and mitigate risks before they escalate.*
 
-🧩 *These insights help generate preventive strategies from historical data.*
 
 ---
 
 ### 4. Proactive Alert Generation
 
-Continuously monitors for emerging hazards:
+The **AlertGenerator** continuously scans new incidents for:
+- Recurrent patterns (e.g., repeated gas explosions in the same region)  
+- Seasonal spikes in accident frequency  
+- Sudden anomalies in causes or severity  
 
-- Repeated accidents of the same cause  
-- Seasonal or regional spikes  
-- Recurrence in high-risk areas  
+⚠️ When thresholds are breached, **MineGuard AI** automatically generates alerts and stores them in MongoDB for dashboard visualization or email notifications.
 
-⚠️ *When thresholds are exceeded, alerts are logged and published for dashboards or notifications.*
 
 ---
 
 ### 5. Asynchronous Multi-Agent System
 
-The system runs using **`asyncio`** for concurrent, scalable operations:
+Each agent runs independently via `asyncio`, enabling:
+- Concurrent scraping, analysis, and Q&A  
+- High throughput and scalability  
+- Fault-tolerant design (agents can restart independently)
 
-- ⚡ Real-time report monitoring  
-- 🧩 Fault-tolerant architecture  
-- 📈 Scalable to multiple data sources  
 
 ---
 
@@ -137,6 +136,7 @@ The system runs using **`asyncio`** for concurrent, scalable operations:
 | **AI/ML** | LangChain, Google Generative AI |
 | **Databases** | MongoDB (Primary), ChromaDB (Vector Store) |
 | **Data Processing** | PyPDF, BeautifulSoup, Pandas |
+
 | **Architecture** | Custom Asynchronous Multi-Agent System |
 
 ---
@@ -158,7 +158,8 @@ The system runs using **`asyncio`** for concurrent, scalable operations:
 git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
 cd Mine-Safety-Analysis
 
-# 2. Create and activate virtual environment
+
+# 2. Create a virtual environment
 python3 -m venv venv
 source venv/bin/activate   # (Linux/Mac)
 venv\Scripts\activate      # (Windows)
@@ -166,9 +167,10 @@ venv\Scripts\activate      # (Windows)
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment variables
+
+# 4. Configure environment variables (MongoDB URI, API keys, etc.)
 cp .env.example .env
-# Edit the .env file to include MongoDB URI, API keys, etc.
+# Edit .env with your configurations
 
 # 5. Run the Flask server
 python app.py

@@ -48,6 +48,7 @@ MineGuard AI follows a **multi-agent architecture**, where specialized agents co
 
 ### ⚙️ Core Components
 
+
 | Component | Description |
 |------------|-------------|
 | 🕵️‍♂️ **DGMSMonitorAgent** | Scrapes and monitors DGMS official reports. |

@@ -1,8 +1,6 @@
 # 🛡️ MineGuard AI: A Multi-Agent System for Proactive Mine Safety Analysis (CyberLabs IIT-ISM)
 
 > **An intelligent, autonomous system that transforms unstructured mine safety reports into actionable insights — enabling proactive monitoring, analysis, and prevention of mine accidents in India.**
-<<<<<<< HEAD
-=======
 
 ---
 
@@ -13,7 +11,6 @@ It uses a **multi-agent architecture** with AI-driven reasoning and natural lang
 
 **In essence:**  
 > MineGuard AI reads, understands, retrieve and analyzes every mine accident report and generate solutions to prevent accidents — so humans can focus on saving lives, not parsing data.
->>>>>>> 72ea7f1 (readme update)
 
 ---
 
@@ -44,21 +41,12 @@ This causes **information latency**, where critical insights that could prevent 
 
 ### Key Capabilities
 
-<<<<<<< HEAD
-1. **Data Ingestion** — Scrapes DGMS and media sources for incident data.  
-2. **Intelligent Structuring** — Converts unstructured text/PDFs into structured JSON format.  
-3. **Data Enrichment** — Maps missing or vague entries to official DGMS codes using semantic AI.  
-4. **Conversational Querying** — Enables natural-language interaction for summaries, trends, and Q&A.  
-5. **Accident Pattern Analysis** — Identifies seasonal, temporal, and geographical trends.  
-6. **Proactive Alerts** — Detects anomalies and generates safety warnings.
-=======
 1. **Data Ingestion** — Scrapes DGMS and news reports.  
 2. **Intelligent Structuring** — Converts unstructured text/PDFs into structured JSON data.  
 3. **Data Enrichment** — Maps missing or vague entries to official DGMS codes using AI-powered semantic matching.  
 4. **Conversational Querying** — Enables natural-language interaction for trend analysis, summaries, and Q&A.  
 5. **Accident Pattern Analysis** — Uses historical data to analyze seasonal, temporal, and geographical trends.  
 6. **Proactive Alert Generation** — Monitors new reports to generate early alerts for high-risk patterns.  
->>>>>>> 72ea7f1 (readme update)
 
 This transforms a **reactive** manual process into a **proactive**, AI-powered safety intelligence ecosystem.
 
@@ -70,21 +58,6 @@ MineGuard AI follows a **multi-agent architecture**, where specialized agents co
 
 ### ⚙️ Core Components
 
-<<<<<<< HEAD
-
-| Component | Description |
-|------------|-------------|
-| 🕵️‍♂️ **DGMSMonitorAgent** | Scrapes and monitors DGMS official reports. |
-| ⚙️ **NewsScannerAgent** | Extracts incident data from verified media and government sources. |
-| 🧩 **IncidentAnalysisAgent** | Parses, enriches, and analyzes incidents; acts as the control center. |
-| 💬 **ConversationalAgent** | Handles natural language queries using Retrieval-Augmented Generation (RAG). |
-| 📊 **AccidentAnalysisModule** | Performs statistical and temporal trend analysis. |
-| 🚨 **AlertGenerator** | Detects high-risk patterns and issues alerts. |
-| 🗃️ **MongoDB** | Stores structured incident data. |
-| 🧠 **ChromaDB** | Stores vector embeddings for semantic retrieval and cause mapping. |
-
-All agents communicate using the **A2A (Agent-to-Agent)** protocol, enabling modular scalability and asynchronous execution.
-=======
 | Component | Role |
 |------------|------|
 | 🕵️‍♂️ **DGMSMonitorAgent** | Collects reports from the official DGMS website |
@@ -97,7 +70,6 @@ All agents communicate using the **A2A (Agent-to-Agent)** protocol, enabling mod
 | 🧠 **ChromaDB** | Handles vector embeddings and semantic search for cause-code mapping |
 
 All agents interact with each other using **A2A protocol**, with the **IncidentAnalysisAgent** as the control center.
->>>>>>> 72ea7f1 (readme update)
 
 ---
 
@@ -105,7 +77,6 @@ All agents interact with each other using **A2A protocol**, with the **IncidentA
 
 ### 1. AI-Powered Cause Code Mapping
 Automatically maps free-text causes like  
-<<<<<<< HEAD
 > “Landslide” to the official DGMS code  
 > **0118 — Landslide**
 
@@ -128,29 +99,6 @@ Provides **factually grounded** Q&A through RAG pipelines:
 4. Model → generates grounded, verifiable responses  
 
 💡 *Ensures explainable, data-backed responses directly from verified records.*
-=======
-> “Landslide”  
-to official DGMS code  
-> **0118 — Landslide**
-
-**How it Works:**
-- DGMS cause-code descriptions → stored in **ChromaDB vector store**  
-- Incident descriptions → embedded and semantically compared  
-- Most relevant DGMS code → automatically assigned  
-
-✅ *Accurate and context-aware semantic matching.*
-
----
-
-### 2. Retrieval-Augmented Generation (RAG) for Q&A
-Delivers **factually grounded** responses through RAG pipelines:
-
-1. User query → contextualized  
-2. Context retrieved from **MongoDB** + **ChromaDB**  
-3. Fused into LLM prompt → generates reliable answers  
-
-💡 *Data-driven, explainable responses directly from verified sources.*
->>>>>>> 72ea7f1 (readme update)
 
 ---
 
@@ -163,7 +111,6 @@ Provides insights into:
 
 🧩 *Also generates preventive recommendations using historical data.*
 
-
 ---
 
 ### 4. Proactive Alert Generation
@@ -174,7 +121,6 @@ Monitors new incidents for:
 
 ⚠️ When thresholds are exceeded, **alerts** are generated and stored for dashboards or notifications.
 
-
 ---
 
 ### 5. Asynchronous Multi-Agent System
@@ -182,7 +128,6 @@ All agents run concurrently via **asyncio**, offering:
 - Real-time updates  
 - Fault-tolerant operation  
 - Scalable architecture  
-
 
 ---
 

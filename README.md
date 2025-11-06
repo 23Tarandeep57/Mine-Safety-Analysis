@@ -10,16 +10,6 @@ https://github.com/user-attachments/assets/a9042710-895c-4cb3-8a0e-6bf1fc35e954
 
 ---
 
-## 🧭 Summary (In Brief)
-
-**MineGuard AI** automates the entire mine safety intelligence pipeline — from **data collection and structuring** to **semantic enrichment, analysis, and alert generation**.  
-It uses a **multi-agent architecture** with AI-driven reasoning and natural language querying to provide **real-time situational awareness** and **predictive insights** for accident prevention.
-
-**In essence:**  
-> MineGuard AI reads, understands, retrieve and analyzes every mine accident report and generate solutions to prevent accidents — so humans can focus on saving lives, not parsing data.
-
----
-
 ## 🧭 Summary
 
 **MineGuard AI** automates the entire mine safety intelligence pipeline — from **data collection and structuring** to **semantic enrichment, analysis, and alert generation**.  

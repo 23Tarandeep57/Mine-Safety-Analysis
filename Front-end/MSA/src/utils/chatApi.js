@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:5000/api';
+const API_URL = 'http://127.0.0.1:5001/api';
 
 export const getIncidents = async () => {
   try {
@@ -32,9 +32,9 @@ export const getAlerts = async () => {
   }
 };
 
-export const sendMessage = async (message) => {
+export const sendMessage = async (message, history) => {
   try {
-    const response = await axios.post(`${API_URL}/chat`, { message });
+    const response = await axios.post(`${API_URL}/chat`, { message, history });
     return response.data;
   } catch (error) {
     console.error('Error sending message:', error);

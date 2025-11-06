@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { sendMessage as apiSendMessage } from '../../utils/chatApi';
 import './Chatbot.css';
 
 const Chatbot = () => {
@@ -44,40 +45,30 @@ const Chatbot = () => {
     setInputValue('');
     setIsTyping(true);
 
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
+    try {
+      // Pass the entire message history for context
+      const botResponseData = await apiSendMessage(messageText, messages);
       const botResponse = {
         id: messages.length + 2,
-        text: generateResponse(messageText),
+        text: botResponseData.response, // Assuming the API returns { response: '...' }
         sender: 'bot',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, botResponse]);
+    } catch (error) {
+      const errorResponse = {
+        id: messages.length + 2,
+        text: "Sorry, I'm having trouble connecting to the server. Please try again later.",
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
-  };
-
-  const generateResponse = (query) => {
-    // This is a placeholder. Replace with actual API integration
-    const responses = {
-      pattern: "Based on analysis of 150+ incidents, the most common patterns include: equipment failure during shift changes (23%), inadequate ventilation (18%), and human error during high-pressure operations (15%).",
-      safety: "Key safety recommendations: 1) Implement real-time monitoring systems, 2) Conduct bi-weekly safety drills, 3) Upgrade ventilation in sectors B and C, 4) Mandatory equipment checks before each shift.",
-      risk: "Current risk assessment shows: High risk in Zone A-3 (ventilation concerns), Medium risk in Zone B-1 (aging equipment), Low risk in Zone C-2. Immediate action recommended for Zone A-3.",
-      equipment: "Equipment status overview: 87% operational, 8% under maintenance, 5% flagged for replacement. Critical alerts: Drill #4 requires immediate inspection, Ventilation system #2 showing irregular patterns."
-    };
-
-    const lowerQuery = query.toLowerCase();
-    if (lowerQuery.includes('pattern') || lowerQuery.includes('accident')) {
-      return responses.pattern;
-    } else if (lowerQuery.includes('safety') || lowerQuery.includes('recommend')) {
-      return responses.safety;
-    } else if (lowerQuery.includes('risk') || lowerQuery.includes('assess')) {
-      return responses.risk;
-    } else if (lowerQuery.includes('equipment') || lowerQuery.includes('status')) {
-      return responses.equipment;
     }
-    return "I'm analyzing your query using our AI-powered safety intelligence system. Could you please provide more specific details about incidents, safety concerns, or risk assessments you'd like to explore?";
   };
+
+
 
   const handleQuickAction = (text) => {
     handleSendMessage(text);

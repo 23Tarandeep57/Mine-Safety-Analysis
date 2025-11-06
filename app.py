@@ -110,9 +110,54 @@ def chatbot_endpoint():
 def debug_endpoint():
     return jsonify({"method": request.method})
 
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    """Endpoint to handle chat messages by communicating with the agent via files."""
+    data = request.get_json()
+    user_message = data.get("message")
+    history = data.get("history", []) # Get history, default to empty list
+
+    if not user_message:
+        return jsonify({"error": "No message provided"}), 400
+
+    try:
+        # Ensure the response file is clean before the new query
+        if BOT_RESPONSE_FILE.exists():
+            with open(BOT_RESPONSE_FILE, "w") as f:
+                f.truncate(0)
+
+        # Create the payload for the agent, including history
+        agent_payload = {
+            "query": user_message,
+            "history": history
+        }
+
+        # Write the query to the user_query.txt file to trigger the agent
+        with open(USER_QUERY_FILE, "w", encoding="utf-8") as f:
+            json.dump(agent_payload, f)
+
+
+        # --- Wait for the agent's response ---
+        start_time = time.time()
+        while time.time() - start_time < WAIT_TIMEOUT:
+            if BOT_RESPONSE_FILE.exists() and BOT_RESPONSE_FILE.stat().st_size > 0:
+                with open(BOT_RESPONSE_FILE, "r", encoding="utf-8") as f:
+                    response_text = f.read()
+                
+                if EOS_TOKEN in response_text:
+                    # Clean up the response and return
+                    final_response = response_text.replace(EOS_TOKEN, "").strip()
+                    return jsonify({"response": final_response})
+            
+            time.sleep(0.1) # Poll every 100ms
+
+        return jsonify({"error": "Request timed out. The agent did not respond in time."}), 504
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
 # --- Main Block ---
 
 if __name__ == "__main__":
-    # Note: The multi-agent system in `agent.py` should be run as a separate process.
-    # This Flask app is only for serving the data and interacting with the agent via files.
-    app.run(debug=True, port=5001)
+    app.run(port=5001, debug=True)

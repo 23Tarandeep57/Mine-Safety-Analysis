@@ -15,17 +15,23 @@ const Chatbot = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-
-  const quickActions = [
-    { id: 1, text: "Recent accident patterns", icon: "📊" },
-    { id: 2, text: "Safety recommendations", icon: "⚠️" },
-    { id: 3, text: "Risk assessment", icon: "🔍" },
-    { id: 4, text: "Equipment status", icon: "⚙️" }
-  ];
+  const textareaRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const autoResizeTextarea = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+    }
+  };
+
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [inputValue]);
 
   useEffect(() => {
     scrollToBottom();
@@ -41,37 +47,52 @@ const Chatbot = () => {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    // Add user message and a placeholder for the bot's response
+    setMessages(prev => [
+      ...prev, 
+      userMessage,
+      {
+        id: prev.length + 2,
+        text: '', // Start with an empty text
+        sender: 'bot',
+        timestamp: new Date()
+      }
+    ]);
     setInputValue('');
     setIsTyping(true);
 
     try {
-      // Pass the entire message history for context
-      const botResponseData = await apiSendMessage(messageText, messages);
-      const botResponse = {
-        id: messages.length + 2,
-        text: botResponseData.response, // Assuming the API returns { response: '...' }
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botResponse]);
+      await apiSendMessage(messageText, messages, (chunk) => {
+        setMessages(prev => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage && lastMessage.sender === 'bot') {
+            // Append the new chunk to the last bot message
+            const updatedMessages = [...prev];
+            updatedMessages[prev.length - 1] = {
+              ...lastMessage,
+              text: lastMessage.text + chunk
+            };
+            return updatedMessages;
+          }
+          return prev; // Should not happen if placeholder is set correctly
+        });
+      });
     } catch (error) {
-      const errorResponse = {
-        id: messages.length + 2,
-        text: "Sorry, I'm having trouble connecting to the server. Please try again later.",
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorResponse]);
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage && lastMessage.sender === 'bot') {
+          const updatedMessages = [...prev];
+          updatedMessages[prev.length - 1] = {
+            ...lastMessage,
+            text: "Sorry, I'm having trouble connecting to the server. Please try again later."
+          };
+          return updatedMessages;
+        }
+        return prev;
+      });
     } finally {
       setIsTyping(false);
     }
-  };
-
-
-
-  const handleQuickAction = (text) => {
-    handleSendMessage(text);
   };
 
   const handleKeyPress = (e) => {
@@ -174,27 +195,14 @@ const Chatbot = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Actions */}
-        <div className="quick-actions">
-          {quickActions.map((action) => (
-            <button
-              key={action.id}
-              className="quick-action-btn"
-              onClick={() => handleQuickAction(action.text)}
-            >
-              <span className="action-icon">{action.icon}</span>
-              <span className="action-text">{action.text}</span>
-            </button>
-          ))}
-        </div>
-
         {/* Input Area */}
         <div className="chatbot-input">
           <textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask about safety insights, patterns, or recommendations..."
+            placeholder="Ask about anything related to mine safety"
             rows="1"
           />
           <button 

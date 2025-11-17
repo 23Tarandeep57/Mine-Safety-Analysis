@@ -1,67 +1,178 @@
+import { useState, useEffect } from 'react';
+import { getIncidents } from '../utils/chatApi';
 import './AnalysisPage.css';
 
 const AnalysisPage = () => {
-  const patterns = [
-    {
-      category: 'Equipment Failure',
-      total: 287,
-      percentage: 23,
-      trend: 'increasing',
-      yearOverYear: '+12%',
-      subcategories: [
-        { name: 'Hydraulic Systems', count: 98, percent: 34 },
-        { name: 'Electrical Components', count: 76, percent: 26 },
-        { name: 'Mechanical Parts', count: 65, percent: 23 },
-        { name: 'Control Systems', count: 48, percent: 17 }
-      ]
-    },
-    {
-      category: 'Ventilation Issues',
-      total: 224,
-      percentage: 18,
-      trend: 'decreasing',
-      yearOverYear: '-8%',
-      subcategories: [
-        { name: 'Insufficient Airflow', count: 89, percent: 40 },
-        { name: 'Filter Blockage', count: 67, percent: 30 },
-        { name: 'Fan Malfunction', count: 45, percent: 20 },
-        { name: 'Duct Leakage', count: 23, percent: 10 }
-      ]
-    },
-    {
-      category: 'Human Error',
-      total: 187,
-      percentage: 15,
-      trend: 'stable',
-      yearOverYear: '+2%',
-      subcategories: [
-        { name: 'Procedural Violations', count: 75, percent: 40 },
-        { name: 'Communication Failure', count: 56, percent: 30 },
-        { name: 'Inadequate Training', count: 37, percent: 20 },
-        { name: 'Fatigue-Related', count: 19, percent: 10 }
-      ]
-    },
-    {
-      category: 'Structural Issues',
-      total: 149,
-      percentage: 12,
-      trend: 'decreasing',
-      yearOverYear: '-15%',
-      subcategories: [
-        { name: 'Support Failure', count: 60, percent: 40 },
-        { name: 'Ground Subsidence', count: 45, percent: 30 },
-        { name: 'Rock Falls', count: 30, percent: 20 },
-        { name: 'Wall Collapse', count: 14, percent: 10 }
-      ]
-    }
-  ];
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [patterns, setPatterns] = useState([]);
 
-  const comparison = {
-    quarters: ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024'],
-    equipment: [72, 68, 75, 72],
-    ventilation: [65, 58, 52, 49],
-    human: [48, 45, 47, 47],
-    structural: [42, 38, 35, 34]
+  useEffect(() => {
+    const fetchIncidents = async () => {
+      try {
+        setLoading(true);
+        const data = await getIncidents();
+        setIncidents(data);
+        
+        // Process incidents to generate patterns
+        const processedPatterns = processIncidentPatterns(data);
+        setPatterns(processedPatterns);
+      } catch (err) {
+        setError('Failed to fetch incidents. Please try again later.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchIncidents();
+  }, []);
+
+  const processIncidentPatterns = (data) => {
+    if (!data || data.length === 0) return [];
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const lastYear = currentYear - 1;
+
+    // Separate this year and last year incidents
+    const thisYearIncidents = [];
+    const lastYearIncidents = [];
+
+    data.forEach(incident => {
+      const incidentDate = new Date(incident.accident_date || incident.date_reported);
+      const incidentYear = incidentDate.getFullYear();
+      
+      if (incidentYear === currentYear) {
+        thisYearIncidents.push(incident);
+      } else if (incidentYear === lastYear) {
+        lastYearIncidents.push(incident);
+      }
+    });
+
+    // Group by category for both years
+    const thisYearCategoryCount = {};
+    const lastYearCategoryCount = {};
+    const categoryDetails = {};
+
+    const processIncident = (incident, countMap) => {
+      let category = 
+        incident.incident_details?.cause_category || 
+        incident.cause_category || 
+        incident.category;
+      
+      if (!category || category === 'Other' || category === 'Uncategorized') {
+        const briefCause = incident.incident_details?.brief_cause || '';
+        const summary = incident.summary || '';
+        const rawTitle = incident.raw_title || incident._raw_title || '';
+        const rawText = incident.raw_text || incident._raw_text || '';
+        
+        category = categorizeFromText(briefCause, summary, rawTitle, rawText);
+      }
+      
+      countMap[category] = (countMap[category] || 0) + 1;
+      return category;
+    };
+
+    thisYearIncidents.forEach(incident => {
+      const category = processIncident(incident, thisYearCategoryCount);
+      if (!categoryDetails[category]) {
+        categoryDetails[category] = [];
+      }
+      categoryDetails[category].push(incident);
+    });
+
+    lastYearIncidents.forEach(incident => {
+      processIncident(incident, lastYearCategoryCount);
+    });
+
+    // Calculate trends
+    const total = thisYearIncidents.length;
+    return Object.entries(thisYearCategoryCount)
+      .map(([category, count]) => {
+        const lastYearCount = lastYearCategoryCount[category] || 0;
+        let trend = 'stable';
+        let yearOverYear = '0%';
+
+        if (lastYearCount === 0) {
+          // New category with no previous year incidents
+          trend = 'increasing';
+          yearOverYear = '+100%';
+        } else {
+          const change = ((count - lastYearCount) / lastYearCount) * 100;
+          const changeRounded = Math.round(change);
+          
+          if (changeRounded > 5) {
+            trend = 'increasing';
+            yearOverYear = `+${changeRounded}%`;
+          } else if (changeRounded < -5) {
+            trend = 'decreasing';
+            yearOverYear = `${changeRounded}%`;
+          } else {
+            trend = 'stable';
+            yearOverYear = `${changeRounded >= 0 ? '+' : ''}${changeRounded}%`;
+          }
+        }
+
+        return {
+          category,
+          total: count,
+          percentage: Math.round((count / total) * 100),
+          trend,
+          yearOverYear,
+          incidents: categoryDetails[category] || []
+        };
+      })
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 6);
+  };  const categorizeFromText = (...texts) => {
+    // Combine all text sources
+    const combinedText = texts.filter(t => t).join(' ').toLowerCase();
+    
+    if (!combinedText || combinedText.length < 5) return 'Uncategorized';
+    
+    // More comprehensive pattern matching based on DGMS categories
+    if (combinedText.match(/\b(fall.*roof|roof.*fall|side.*fall|fall.*side|collapse|cave|strata)\b/i)) {
+      return 'Fall of Roof/Sides';
+    }
+    if (combinedText.match(/\b(transport|vehicle|haulag|truck|dumper|tipper|collision|run.*over|loading|unloading)\b/i)) {
+      return 'Transportation/Haulage';
+    }
+    if (combinedText.match(/\b(electric|electrocution|shock|power|current|wire|cable|contact.*live)\b/i)) {
+      return 'Electrical Accidents';
+    }
+    if (combinedText.match(/\b(machinery|equipment|mechanical|machine|drill|excavator|conveyor|belt|pulley|rope|winch)\b/i)) {
+      return 'Machinery Accidents';
+    }
+    if (combinedText.match(/\b(explosion|blast|fire|burn|ignition|flame)\b/i)) {
+      return 'Explosion/Fire';
+    }
+    if (combinedText.match(/\b(gas|methane|carbon|suffocation|asphyxia|inundation|water|flood|pump)\b/i)) {
+      return 'Gas/Inundation';
+    }
+    if (combinedText.match(/\b(slip|trip|fell|fall.*height|fall.*from|fallen)\b/i)) {
+      return 'Slip/Trip/Fall';
+    }
+    if (combinedText.match(/\b(hit|struck|crush|caught|pinned|trap|between|falling.*object)\b/i)) {
+      return 'Hit by Object/Caught';
+    }
+    if (combinedText.match(/\b(shaft|winding|cage|skip|hoisting)\b/i)) {
+      return 'Shaft/Winding';
+    }
+    if (combinedText.match(/\b(drill|boring|blast.*hole|charging)\b/i)) {
+      return 'Drilling/Blasting';
+    }
+    
+    // If we have some text but no match, categorize by mineral type or location
+    if (combinedText.match(/\b(coal)\b/i)) {
+      return 'Coal Mining Operations';
+    }
+    if (combinedText.match(/\b(iron|ore|metal|mineral)\b/i)) {
+      return 'Ore Mining Operations';
+    }
+    
+    return 'Other';
   };
 
   const getTrendIcon = (trend) => {
@@ -80,143 +191,88 @@ const AnalysisPage = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="analysis-page">
+        <div className="page-header">
+          <h1>Accident Pattern Analysis</h1>
+          <p>Loading incident data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="analysis-page">
+        <div className="page-header">
+          <h1>Accident Pattern Analysis</h1>
+          <p className="error-message">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="analysis-page">
       <div className="page-header">
         <h1>Accident Pattern Analysis</h1>
-        <p>Comprehensive breakdown of incident patterns and comparative insights</p>
+        <p>Comprehensive breakdown of incident patterns from database - Total Incidents: {incidents.length}</p>
       </div>
 
       {/* Pattern Cards */}
       <div className="patterns-container">
-        {patterns.map((pattern, index) => (
-          <div key={index} className="pattern-detail-card">
-            <div className="pattern-main">
-              <div className="pattern-overview">
-                <h2>{pattern.category}</h2>
-                <div className="pattern-metrics">
-                  <div className="metric">
-                    <span className="metric-value">{pattern.total}</span>
-                    <span className="metric-label">Total Incidents</span>
-                  </div>
-                  <div className="metric">
-                    <span className="metric-value">{pattern.percentage}%</span>
-                    <span className="metric-label">Of All Incidents</span>
-                  </div>
-                  <div className={`metric trend ${getTrendClass(pattern.trend)}`}>
-                    <span className="metric-value">
-                      {getTrendIcon(pattern.trend)} {pattern.yearOverYear}
-                    </span>
-                    <span className="metric-label">YoY Change</span>
+        {patterns.length > 0 ? (
+          patterns.map((pattern, index) => (
+            <div key={index} className="pattern-detail-card">
+              <div className="pattern-main">
+                <div className="pattern-overview">
+                  <h2>{pattern.category}</h2>
+                  <div className="pattern-metrics">
+                    <div className="metric">
+                      <span className="metric-value">{pattern.total}</span>
+                      <span className="metric-label">Total Incidents</span>
+                    </div>
+                    <div className="metric">
+                      <span className="metric-value">{pattern.percentage}%</span>
+                      <span className="metric-label">Of Total</span>
+                    </div>
+                    <div className={`metric ${getTrendClass(pattern.trend)}`}>
+                      <span className="metric-value">
+                        {getTrendIcon(pattern.trend)} {pattern.yearOverYear}
+                      </span>
+                      <span className="metric-label">YoY Change</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="subcategories">
-                <h4>Breakdown by Type</h4>
-                {pattern.subcategories.map((sub, idx) => (
-                  <div key={idx} className="subcategory-item">
-                    <div className="subcategory-info">
-                      <span className="subcategory-name">{sub.name}</span>
-                      <span className="subcategory-count">{sub.count} incidents</span>
-                    </div>
-                    <div className="subcategory-bar">
-                      <div 
-                        className="subcategory-fill" 
-                        style={{ width: `${sub.percent}%` }}
-                      ></div>
-                    </div>
-                    <span className="subcategory-percent">{sub.percent}%</span>
+              {/* Recent incidents in this category */}
+              <div className="recent-incidents">
+                <h4>Recent Incidents:</h4>
+                {pattern.incidents.slice(0, 3).map((incident, idx) => (
+                  <div key={idx} className="incident-item">
+                    <span className="incident-date">
+                      {new Date(incident.accident_date || incident.date_reported || incident.date).toLocaleDateString()}
+                    </span>
+                    <span className="incident-location">
+                      {incident.mine_details?.name || 
+                       incident.mine_details?.district || 
+                       incident.mine_details?.state ||
+                       incident.mine ||
+                       incident.location || 
+                       'Unknown Location'}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
+          ))
+        ) : (
+          <div className="no-data">
+            <p>No incident patterns available</p>
           </div>
-        ))}
-      </div>
-
-      {/* Quarterly Comparison */}
-      <div className="comparison-section">
-        <h2>Quarterly Trend Comparison</h2>
-        <p className="section-subtitle">Incident frequency across different categories over time</p>
-        
-        <div className="comparison-chart">
-          <div className="chart-legend">
-            <div className="legend-item">
-              <span className="legend-dot equipment"></span>
-              <span>Equipment Failure</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-dot ventilation"></span>
-              <span>Ventilation Issues</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-dot human"></span>
-              <span>Human Error</span>
-            </div>
-            <div className="legend-item">
-              <span className="legend-dot structural"></span>
-              <span>Structural Issues</span>
-            </div>
-          </div>
-
-          <div className="chart-bars">
-            {comparison.quarters.map((quarter, index) => (
-              <div key={index} className="quarter-group">
-                <div className="bars-stack">
-                  <div 
-                    className="bar equipment" 
-                    style={{ height: `${(comparison.equipment[index] / 80) * 100}%` }}
-                    title={`Equipment: ${comparison.equipment[index]}`}
-                  >
-                    <span className="bar-value">{comparison.equipment[index]}</span>
-                  </div>
-                  <div 
-                    className="bar ventilation" 
-                    style={{ height: `${(comparison.ventilation[index] / 80) * 100}%` }}
-                    title={`Ventilation: ${comparison.ventilation[index]}`}
-                  >
-                    <span className="bar-value">{comparison.ventilation[index]}</span>
-                  </div>
-                  <div 
-                    className="bar human" 
-                    style={{ height: `${(comparison.human[index] / 80) * 100}%` }}
-                    title={`Human: ${comparison.human[index]}`}
-                  >
-                    <span className="bar-value">{comparison.human[index]}</span>
-                  </div>
-                  <div 
-                    className="bar structural" 
-                    style={{ height: `${(comparison.structural[index] / 80) * 100}%` }}
-                    title={`Structural: ${comparison.structural[index]}`}
-                  >
-                    <span className="bar-value">{comparison.structural[index]}</span>
-                  </div>
-                </div>
-                <span className="quarter-label">{quarter}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Key Insights */}
-      <div className="insights-section">
-        <h2>Key Insights</h2>
-        <div className="insights-grid">
-          <div className="insight-box">
-            <h4>Primary Concern</h4>
-            <p>Equipment failure remains the leading cause, requiring enhanced preventive maintenance protocols.</p>
-          </div>
-          <div className="insight-box">
-            <h4>Positive Trend</h4>
-            <p>Structural issues decreased by 15% following implementation of advanced monitoring systems.</p>
-          </div>
-          <div className="insight-box">
-            <h4>Action Required</h4>
-            <p>Human error incidents remain stable, indicating need for improved training and safety culture.</p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,71 +1,79 @@
+import { useState, useEffect } from 'react';
+import { getAlerts } from '../utils/chatApi';
 import './AlertsPage.css';
 
 const AlertsPage = () => {
-  const criticalAlerts = [
-    {
-      id: 1,
-      type: 'Fire',
-      location: 'Zone A-3, Level 2',
-      severity: 'critical',
-      time: '15 minutes ago',
-      description: 'Fire detection system triggered in machinery room. Emergency response team dispatched.',
-      status: 'active',
-      icon: '🔥'
-    },
-    {
-      id: 2,
-      type: 'Short Circuit',
-      location: 'Zone B-1, Main Power Grid',
-      severity: 'critical',
-      time: '1 hour ago',
-      description: 'Major electrical fault detected in primary distribution panel. Power redirected to backup.',
-      status: 'active',
-      icon: '⚡'
-    },
-    {
-      id: 3,
-      type: 'Landslide',
-      location: 'Eastern Slope, Section 4',
-      severity: 'high',
-      time: '3 hours ago',
-      description: 'Ground sensors indicate unstable slope conditions. Area evacuated and cordoned off.',
-      status: 'monitoring',
-      icon: '⛰️'
-    },
-    {
-      id: 4,
-      type: 'Faulty Equipment',
-      location: 'Zone C-2, Drill Station 7',
-      severity: 'high',
-      time: '5 hours ago',
-      description: 'Hydraulic drill showing abnormal pressure readings. Operations suspended pending inspection.',
-      status: 'investigating',
-      icon: '⚙️'
-    },
-    {
-      id: 5,
-      type: 'Gas Leak',
-      location: 'Zone A-3, Ventilation Shaft',
-      severity: 'critical',
-      time: '8 hours ago',
-      description: 'Elevated methane levels detected. Ventilation systems operating at maximum capacity.',
-      status: 'resolved',
-      icon: '💨'
-    },
-    {
-      id: 6,
-      type: 'Structural Damage',
-      location: 'Zone B-5, Support Beam 12',
-      severity: 'high',
-      time: '12 hours ago',
-      description: 'Stress fractures detected in primary support structure. Reinforcement work in progress.',
-      status: 'investigating',
-      icon: '🏗️'
-    }
-  ];
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        setLoading(true);
+        const data = await getAlerts();
+        // Transform string alerts into structured objects
+        const structuredAlerts = data.map((alertText, index) => ({
+          id: index + 1,
+          text: alertText,
+          type: extractType(alertText),
+          severity: extractSeverity(alertText),
+          location: extractLocation(alertText),
+          description: alertText,
+          status: 'active',
+          time: 'Recent'
+        }));
+        setAlerts(structuredAlerts);
+      } catch (err) {
+        setError('Failed to fetch alerts. Please try again later.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAlerts();
+  }, []);
+
+  const extractType = (text) => {
+    if (text.toLowerCase().includes('fire')) return 'Fire Safety';
+    if (text.toLowerCase().includes('electrical')) return 'Electrical Safety';
+    if (text.toLowerCase().includes('transport') || text.toLowerCase().includes('vehicle')) return 'Transportation';
+    if (text.toLowerCase().includes('roof fall') || text.toLowerCase().includes('structural')) return 'Structural';
+    if (text.toLowerCase().includes('ventilation') || text.toLowerCase().includes('gas')) return 'Ventilation';
+    if (text.toLowerCase().includes('equipment') || text.toLowerCase().includes('machinery')) return 'Equipment';
+    if (text.toLowerCase().includes('unauthorized')) return 'Access Control';
+    if (text.toLowerCase().includes('training') || text.toLowerCase().includes('protocol')) return 'Safety Protocol';
+    return 'Safety Alert';
+  };
+
+  const extractSeverity = (text) => {
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('critical') || lowerText.includes('immediate') || lowerText.includes('urgent')) return 'critical';
+    if (lowerText.includes('high') || lowerText.includes('prioritize') || lowerText.includes('enhance')) return 'high';
+    return 'high';
+  };
+
+  const extractLocation = (text) => {
+    // Extract location names from text
+    const locationMatch = text.match(/in ([A-Z][a-z]+(?:'s)?\s*[A-Z]?[a-z]*(?:\s+[A-Z][a-z]+)*)/);
+    if (locationMatch) return locationMatch[1];
+    
+    // Common location keywords
+    if (text.includes('Chhattisgarh')) return 'Chhattisgarh';
+    if (text.includes('Jharkhand')) return 'Jharkhand';
+    if (text.includes('Korba')) return 'Korba district';
+    if (text.includes('Prakasam')) return 'Prakasam district';
+    if (text.includes('West Bengal')) return 'West Bengal';
+    if (text.includes('coal mining')) return 'Coal Mining Areas';
+    if (text.includes('granite')) return 'Granite Mining Areas';
+    
+    return 'Multiple Locations';
+  };
 
   const getSeverityClass = (severity) => {
-    return severity === 'critical' ? 'critical' : 'high';
+    if (!severity) return 'high';
+    return severity.toLowerCase() === 'critical' ? 'critical' : 'high';
   };
 
   const getStatusBadge = (status) => {
@@ -78,6 +86,47 @@ const AlertsPage = () => {
     return statusConfig[status] || statusConfig.active;
   };
 
+  const getSeverityIcon = (type) => {
+    const icons = {
+      'Fire': '🔥',
+      'Short Circuit': '⚡',
+      'Landslide': '⛰️',
+      'Faulty Equipment': '⚙️',
+      'Gas Leak': '💨',
+      'Structural Damage': '🏗️',
+      'Equipment Failure': '⚙️',
+      'Ventilation': '💨',
+      'Safety Protocol': '⚠️'
+    };
+    return icons[type] || '⚠️';
+  };
+
+  if (loading) {
+    return (
+      <div className="alerts-page">
+        <div className="page-header">
+          <h1>Critical Alerts</h1>
+          <p>Loading alerts...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="alerts-page">
+        <div className="page-header">
+          <h1>Critical Alerts</h1>
+          <p className="error-message">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const criticalCount = alerts.filter(a => a.severity === 'critical').length;
+  const highCount = alerts.filter(a => a.severity === 'high').length;
+  const resolvedCount = alerts.filter(a => a.status === 'resolved').length;
+
   return (
     <div className="alerts-page">
       <div className="page-header">
@@ -87,52 +136,43 @@ const AlertsPage = () => {
 
       <div className="alerts-summary">
         <div className="summary-card critical">
-          <span className="summary-number">3</span>
+          <span className="summary-number">{criticalCount}</span>
           <span className="summary-label">Critical Alerts</span>
         </div>
         <div className="summary-card high">
-          <span className="summary-number">3</span>
+          <span className="summary-number">{highCount}</span>
           <span className="summary-label">High Priority</span>
         </div>
         <div className="summary-card resolved">
-          <span className="summary-number">1</span>
+          <span className="summary-number">{resolvedCount}</span>
           <span className="summary-label">Resolved Today</span>
         </div>
       </div>
 
-      <div className="alerts-container">
-        {criticalAlerts.map((alert) => (
-          <div key={alert.id} className={`alert-card ${getSeverityClass(alert.severity)}`}>
-            <div className="alert-icon">{alert.icon}</div>
-            
-            <div className="alert-content">
-              <div className="alert-header">
-                <div className="alert-title">
-                  <h3>{alert.type}</h3>
-                  <span className={`status-badge ${getStatusBadge(alert.status).class}`}>
-                    {getStatusBadge(alert.status).text}
-                  </span>
+      <div className="alerts-grid">
+        {alerts.length > 0 ? (
+          alerts.map((alert) => {
+            const statusInfo = getStatusBadge(alert.status || 'active');
+            return (
+              <div key={alert.id} className={`alert-card ${getSeverityClass(alert.severity)}`}>
+                <div className="alert-header">
+                  <span className="alert-icon">{getSeverityIcon(alert.type)}</span>
+                  <div className="alert-title-group">
+                    <h3>{alert.type}</h3>
+                    <span className="alert-time">{alert.time}</span>
+                  </div>
+                  <span className={`status-badge ${statusInfo.class}`}>{statusInfo.text}</span>
                 </div>
-                <span className="alert-time">{alert.time}</span>
+                <p className="alert-location">📍 {alert.location}</p>
+                <p className="alert-description">{alert.description}</p>
               </div>
-              
-              <div className="alert-location">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                  <circle cx="12" cy="10" r="3"></circle>
-                </svg>
-                {alert.location}
-              </div>
-              
-              <p className="alert-description">{alert.description}</p>
-              
-              <div className="alert-actions">
-                <button className="action-btn primary">View Details</button>
-                <button className="action-btn secondary">Update Status</button>
-              </div>
-            </div>
+            );
+          })
+        ) : (
+          <div className="no-alerts">
+            <p>✓ No active alerts at this time</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

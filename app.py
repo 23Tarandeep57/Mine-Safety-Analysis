@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from utility.db import ensure_mongo_collection
 from bson import json_util
@@ -13,13 +13,10 @@ EOS_TOKEN = "<EOS>"
 WAIT_TIMEOUT = 120  # seconds
 
 app = Flask(__name__)
-CORS(app) # This will allow the frontend to make requests to our backend
+CORS(app)
 
 # --- Database Connection ---
 incidents_collection = ensure_mongo_collection()
-
-
-# --- API Endpoints ---
 
 @app.route("/api/incidents", methods=["GET"])
 def get_incidents():
@@ -56,63 +53,76 @@ def get_alerts():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/chatbot", methods=["POST"])
-def chatbot_endpoint():
-    if not request.is_json:
-        return jsonify({
-            "error": "Unsupported Media Type",
-            "message": "Request Content-Type must be 'application/json'"
-        }), 415
-
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    """Endpoint to handle chat messages by communicating with the agent via files."""
     data = request.get_json()
     user_message = data.get("message")
+    history = data.get("history", []) # Get history, default to empty list
 
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
     try:
-        # Ensure files are clear before starting
-        if USER_QUERY_FILE.exists():
-            with open(USER_QUERY_FILE, "w") as f: f.truncate(0)
+       
         if BOT_RESPONSE_FILE.exists():
-            with open(BOT_RESPONSE_FILE, "w") as f: f.truncate(0)
+            with open(BOT_RESPONSE_FILE, "w") as f:
+                f.truncate(0)
 
-        # Write the query to the user_query.txt file to trigger the agent
+        agent_payload = {
+            "query": user_message,
+            "history": history
+        }
         with open(USER_QUERY_FILE, "w", encoding="utf-8") as f:
-            f.write(user_message)
+            json.dump(agent_payload, f)
 
-        # --- Wait for the agent's response ---
-        start_time = time.time()
-        while time.time() - start_time < WAIT_TIMEOUT:
-            if BOT_RESPONSE_FILE.exists() and BOT_RESPONSE_FILE.stat().st_size > 0:
-                with open(BOT_RESPONSE_FILE, "r", encoding="utf-8") as f:
-                    response_text = f.read()
+        def stream_response():
+            """Generator function to poll the file and stream character by character."""
+            read_position = 0
+            start_time = time.time()
+            eos_found = False
+
+            while not eos_found and time.time() - start_time < WAIT_TIMEOUT:
+                if not BOT_RESPONSE_FILE.exists():
+                    time.sleep(0.05)
+                    continue
+
+                try:
+                    with open(BOT_RESPONSE_FILE, "r", encoding="utf-8") as f:
+                        file_size = os.path.getsize(BOT_RESPONSE_FILE)
+                        if file_size > read_position:
+                            f.seek(read_position)
+                            new_text = f.read()
+                            
+                           
+                            read_position += len(new_text.encode('utf-8'))
+
+                            if EOS_TOKEN in new_text:
+                                eos_found = True
+                                final_chunk = new_text.split(EOS_TOKEN)[0]
+                               
+                                for char in final_chunk:
+                                    yield f"data: {json.dumps({'text': char})}\n\n"
+                                    time.sleep(0.02)  
+                            else:
+                               
+                                for char in new_text:
+                                    yield f"data: {json.dumps({'text': char})}\n\n"
+                                    time.sleep(0.02)  
+                except (IOError, json.JSONDecodeError):
+                    pass
                 
-                if EOS_TOKEN in response_text:
-                    # Clean up the response and remove the token
-                    final_response = response_text.split(EOS_TOKEN)[0].strip()
-                    
-                    # Clean up files for the next request
-                    with open(USER_QUERY_FILE, "w") as f: f.truncate(0)
-                    with open(BOT_RESPONSE_FILE, "w") as f: f.truncate(0)
-                    
-                    return jsonify({"response": final_response})
-            
-            time.sleep(0.2) # Poll every 200ms
+                time.sleep(0.05) 
 
-        return jsonify({"error": "Request timed out. The agent did not respond in time."}), 504
+            yield f"data: {json.dumps({'end_of_stream': True})}\n\n"
+
+        return Response(stream_response(), mimetype='text/event-stream')
 
     except Exception as e:
-        return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
+        print(f"Error during chat setup: {e}") 
+      
+        return Response(json.dumps({"error": f"An error occurred: {str(e)}"}), status=500, mimetype='application/json')
 
-
-@app.route("/api/debug", methods=["GET", "POST"])
-def debug_endpoint():
-    return jsonify({"method": request.method})
-
-# --- Main Block ---
 
 if __name__ == "__main__":
-    # Note: The multi-agent system in `agent.py` should be run as a separate process.
-    # This Flask app is only for serving the data and interacting with the agent via files.
-    app.run(debug=True, port=5001)
+    app.run(port=5001, debug=True)

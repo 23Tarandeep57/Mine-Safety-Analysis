@@ -123,4 +123,4 @@ Source: {doc.get('source_url')}
 
 def format_docs(docs):
     """Helper function to format retrieved LangChain documents into a string."""
-    return "\n\n".join(doc[0].page_content for doc in docs)
+    return "\n\n".join(doc.page_content for doc in docs)

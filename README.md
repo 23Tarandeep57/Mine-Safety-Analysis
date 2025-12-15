@@ -179,5 +179,69 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env to include MongoDB URI, API keys, etc.
 
-# 5. Run the Flask server
+# 5. Run the Flask API server (Terminal 1)
 python app.py
+
+# 6. Run the Multi-Agent System (Terminal 2)
+python agent.py
+```
+
+---
+
+## 🖥️ Frontend Setup
+
+The web interface is built with **React + Vite** and provides:
+- 💬 **AI Chatbot** with real-time streaming responses
+- 📊 **Incident Analysis Dashboard** with YoY trends
+- 🚨 **Safety Alerts Viewer** with severity indicators
+
+### 📋 Prerequisites
+
+- **Node.js 18+** (Download: https://nodejs.org/)
+- **npm** or **yarn**
+
+### 🔧 Frontend Installation
+
+```bash
+# 1. Navigate to frontend directory
+cd Front-end/MSA
+
+# 2. Install dependencies
+npm install
+
+# 3. Start development server
+npm run dev
+```
+
+The frontend will start at: **http://localhost:5173**
+
+### 🌐 API Configuration
+
+The frontend connects to the Flask backend at `http://127.0.0.1:5001/api`.  
+If your backend runs on a different port, update the API URL in:
+
+```
+Front-end/MSA/src/utils/chatApi.js
+```
+
+### 📦 Build for Production
+
+```bash
+# Build optimized production bundle
+npm run build
+
+# Preview production build locally
+npm run preview
+```
+
+### 🔄 Running the Full Stack
+
+Open **3 terminals** and run:
+
+| Terminal | Command | Purpose |
+|----------|---------|---------|
+| **Terminal 1** | `python app.py` | Flask API Server (port 5001) |
+| **Terminal 2** | `python agent.py` | Multi-Agent System |
+| **Terminal 3** | `cd Front-end/MSA && npm run dev` | React Frontend (port 5173) |
+
+Then open **http://localhost:5173** in your browser.

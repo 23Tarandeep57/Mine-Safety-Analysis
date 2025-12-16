@@ -223,15 +223,30 @@ class IncidentAnalysisAgent(Agent):
                 "chat_history": chat_history,
                 "context": context
             }):
-                # Publish each chunk to Redis channel
-                self.redis_client.publish(channel, chunk)
-                full_answer += chunk
+                # Extract text from chunk (can be str, dict, or AIMessageChunk)
+                if isinstance(chunk, str):
+                    text = chunk
+                elif hasattr(chunk, 'content'):
+                    # AIMessageChunk or similar
+                    text = chunk.content
+                elif isinstance(chunk, dict):
+                    # Dict with 'answer' or 'text' key
+                    text = chunk.get('answer', chunk.get('text', chunk.get('output', '')))
+                else:
+                    text = str(chunk)
+                
+                if text:
+                    # Publish each chunk to Redis channel
+                    self.redis_client.publish(channel, text)
+                    full_answer += text
             
             # After stream is done, publish the End-of-Stream token
             self.redis_client.publish(channel, EOS_TOKEN)
             
         except Exception as e:
             print(f"[Agent] ERROR in stream_response_to_redis: {e}")
+            import traceback
+            traceback.print_exc()
             # Try to publish an error message
             try:
                 self.redis_client.publish(channel, f"I encountered an error while streaming. Please try again.{EOS_TOKEN}")

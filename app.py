@@ -90,6 +90,7 @@ def chat():
             pubsub.subscribe(response_channel)
             
             start_time = time.time()
+            EOS_TOKEN = "<EOS>"  # Must match agent's EOS token
             
             try:
                 for message in pubsub.listen():
@@ -102,25 +103,23 @@ def chat():
                     if message['type'] != 'message':
                         continue
                     
-                    # Parse the message data
-                    try:
-                        data = json.loads(message['data'])
-                    except json.JSONDecodeError:
-                        continue
+                    # Get the raw text data from Redis
+                    raw_data = message['data']
+                    if isinstance(raw_data, bytes):
+                        raw_data = raw_data.decode('utf-8')
                     
-                    # Check for end of stream
-                    if data.get('end_of_stream'):
+                    # Check for end of stream token
+                    if EOS_TOKEN in raw_data:
+                        # Send any text before EOS token
+                        text_before_eos = raw_data.replace(EOS_TOKEN, '')
+                        if text_before_eos:
+                            yield f"data: {json.dumps({'text': text_before_eos})}\n\n"
                         yield f"data: {json.dumps({'end_of_stream': True})}\n\n"
                         break
                     
-                    # Check for error
-                    if data.get('error'):
-                        yield f"data: {json.dumps({'error': data['error']})}\n\n"
-                        break
-                    
                     # Stream the text chunk
-                    if 'text' in data:
-                        yield f"data: {json.dumps({'text': data['text']})}\n\n"
+                    if raw_data:
+                        yield f"data: {json.dumps({'text': raw_data})}\n\n"
                         
             finally:
                 pubsub.unsubscribe(response_channel)

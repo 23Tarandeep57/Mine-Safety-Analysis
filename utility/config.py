@@ -36,7 +36,7 @@ REPORT_GENERATION_INTERVAL_SECONDS = int(os.environ.get("REPORT_GENERATION_INTER
 
 # Embedding/Chunking Configuration
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "models/text-embedding-004")
-LLM_MODEL = os.environ.get("LLM_MODEL", "models/gemini-2.5-flash")
+LLM_MODEL = os.environ.get("LLM_MODEL", "models/gemini-1.5-flash")
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "2000"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "400"))
 

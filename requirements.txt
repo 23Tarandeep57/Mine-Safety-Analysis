@@ -21,6 +21,9 @@ langgraph
 Flask
 Flask-Cors
 
+# Redis for message queue and pub/sub
+redis
+
 # tesseract is a python wrapper
 
 langchain-text-splitters 

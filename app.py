@@ -1,21 +1,22 @@
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from utility.db import ensure_mongo_collection
+from utility.config import DATA_DIR, REDIS_URL
 from bson import json_util
 import json
 import os
 import time
-from utility.config import DATA_DIR
+import uuid
+import redis
 
-USER_QUERY_FILE = DATA_DIR / "user_query.txt"
-BOT_RESPONSE_FILE = DATA_DIR / "bot_response.txt"
-EOS_TOKEN = "<EOS>"
-WAIT_TIMEOUT = 120  # seconds
+redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+
+CHAT_QUEUE = "chat:queue"
+CHAT_TIMEOUT = 120
 
 app = Flask(__name__)
 CORS(app)
 
-# --- Database Connection ---
 incidents_collection = ensure_mongo_collection()
 
 @app.route("/api/incidents", methods=["GET"])
@@ -55,74 +56,115 @@ def get_alerts():
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    """Endpoint to handle chat messages by communicating with the agent via files."""
+    """
+    Endpoint to handle chat messages using Redis queue and pub/sub.
+    
+    Flow:
+    1. Generate unique request ID
+    2. Push query to Redis queue (agent will pick it up)
+    3. Subscribe to response channel for this request
+    4. Stream responses back to client via SSE
+    """
     data = request.get_json()
     user_message = data.get("message")
-    history = data.get("history", []) # Get history, default to empty list
+    history = data.get("history", [])
 
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    try:
-       
-        if BOT_RESPONSE_FILE.exists():
-            with open(BOT_RESPONSE_FILE, "w") as f:
-                f.truncate(0)
+    # Generate unique request ID
+    request_id = str(uuid.uuid4())
+    response_channel = f"chat:response:{request_id}"
 
-        agent_payload = {
+    try:
+        # Push query to Redis queue for agent to process
+        query_payload = {
+            "request_id": request_id,
             "query": user_message,
             "history": history
         }
-        with open(USER_QUERY_FILE, "w", encoding="utf-8") as f:
-            json.dump(agent_payload, f)
-
+        redis_client.lpush(CHAT_QUEUE, json.dumps(query_payload))
+        
         def stream_response():
-            """Generator function to poll the file and stream character by character."""
-            read_position = 0
+            """Generator that subscribes to Redis pub/sub for streaming response."""
+            pubsub = redis_client.pubsub()
+            pubsub.subscribe(response_channel)
+            
             start_time = time.time()
-            eos_found = False
-
-            while not eos_found and time.time() - start_time < WAIT_TIMEOUT:
-                if not BOT_RESPONSE_FILE.exists():
-                    time.sleep(0.05)
-                    continue
-
-                try:
-                    with open(BOT_RESPONSE_FILE, "r", encoding="utf-8") as f:
-                        file_size = os.path.getsize(BOT_RESPONSE_FILE)
-                        if file_size > read_position:
-                            f.seek(read_position)
-                            new_text = f.read()
-                            
-                           
-                            read_position += len(new_text.encode('utf-8'))
-
-                            if EOS_TOKEN in new_text:
-                                eos_found = True
-                                final_chunk = new_text.split(EOS_TOKEN)[0]
-                               
-                                for char in final_chunk:
-                                    yield f"data: {json.dumps({'text': char})}\n\n"
-                                    time.sleep(0.02)  
-                            else:
-                               
-                                for char in new_text:
-                                    yield f"data: {json.dumps({'text': char})}\n\n"
-                                    time.sleep(0.02)  
-                except (IOError, json.JSONDecodeError):
-                    pass
-                
-                time.sleep(0.05) 
-
-            yield f"data: {json.dumps({'end_of_stream': True})}\n\n"
+            
+            try:
+                for message in pubsub.listen():
+                    # Check timeout
+                    if time.time() - start_time > CHAT_TIMEOUT:
+                        yield f"data: {json.dumps({'error': 'Request timed out'})}\n\n"
+                        break
+                    
+                    # Skip subscription confirmation messages
+                    if message['type'] != 'message':
+                        continue
+                    
+                    # Parse the message data
+                    try:
+                        data = json.loads(message['data'])
+                    except json.JSONDecodeError:
+                        continue
+                    
+                    # Check for end of stream
+                    if data.get('end_of_stream'):
+                        yield f"data: {json.dumps({'end_of_stream': True})}\n\n"
+                        break
+                    
+                    # Check for error
+                    if data.get('error'):
+                        yield f"data: {json.dumps({'error': data['error']})}\n\n"
+                        break
+                    
+                    # Stream the text chunk
+                    if 'text' in data:
+                        yield f"data: {json.dumps({'text': data['text']})}\n\n"
+                        
+            finally:
+                pubsub.unsubscribe(response_channel)
+                pubsub.close()
 
         return Response(stream_response(), mimetype='text/event-stream')
 
+    except redis.RedisError as e:
+        print(f"Redis error: {e}")
+        return jsonify({"error": "Message queue unavailable"}), 503
     except Exception as e:
-        print(f"Error during chat setup: {e}") 
-      
-        return Response(json.dumps({"error": f"An error occurred: {str(e)}"}), status=500, mimetype='application/json')
+        print(f"Error during chat setup: {e}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
+@app.route("/api/health", methods=["GET"])
+def health():
+    """Health check endpoint for Docker/Kubernetes."""
+    try:
+        redis_client.ping()
+        redis_status = "healthy"
+    except:
+        redis_status = "unhealthy"
+    
+    try:
+        if incidents_collection is not None:
+            incidents_collection.find_one()
+            mongo_status = "healthy"
+        else:
+            mongo_status = "unhealthy"
+    except:
+        mongo_status = "unhealthy"
+    
+    status = "healthy" if redis_status == "healthy" and mongo_status == "healthy" else "unhealthy"
+    
+    return jsonify({
+        "status": status,
+        "services": {
+            "redis": redis_status,
+            "mongodb": mongo_status
+        }
+    }), 200 if status == "healthy" else 503
 
 
 if __name__ == "__main__":
-    app.run(port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=True)

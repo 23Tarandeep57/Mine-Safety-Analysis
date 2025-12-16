@@ -40,7 +40,7 @@ from prompts import CONTEXTUALIZE_Q_SYSTEM_PROMPT, QA_SYSTEM_PROMPT
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PERSIST_DIRECTORY = os.path.join(SCRIPT_DIR, "chroma_db")
 EMBEDDING_MODEL = "models/text-embedding-004"
-LLM_MODEL = "models/gemini-pro-latest"
+LLM_MODEL = "models/gemini-1.5-flash"
 
 # Rate-limit/retry settings
 MAX_RETRIES = 6

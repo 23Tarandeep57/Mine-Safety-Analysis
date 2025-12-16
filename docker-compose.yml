@@ -1,9 +1,7 @@
 version: '3.8'
 
 services:
-  # =============================================================================
-  # Redis - Message Queue & Pub/Sub for Agent Communication
-  # =============================================================================
+
   redis:
     image: redis:7-alpine
     container_name: msa-redis
@@ -19,9 +17,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # =============================================================================
-  # MongoDB - Primary Database for Incidents
-  # =============================================================================
   mongo:
     image: mongo:7
     container_name: msa-mongo
@@ -38,9 +33,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # =============================================================================
-  # Flask API Server
-  # =============================================================================
   flask:
     build:
       context: .
@@ -70,9 +62,6 @@ services:
     command: python app.py
     restart: unless-stopped
 
-  # =============================================================================
-  # Multi-Agent System (Background Worker)
-  # =============================================================================
   agent:
     build:
       context: .
@@ -99,9 +88,6 @@ services:
     command: python agent.py
     restart: unless-stopped
 
-  # =============================================================================
-  # React Frontend (Development)
-  # =============================================================================
   frontend:
     build:
       context: ./Front-end/MSA

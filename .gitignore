@@ -59,3 +59,4 @@ Thumbs.db
 data/
 .env
 chroma_db/
+cause_code_db/

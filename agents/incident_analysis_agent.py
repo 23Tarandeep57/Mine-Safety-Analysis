@@ -132,8 +132,9 @@ class IncidentAnalysisAgent(Agent):
         if result["status"] == "success":
             return {"dgms_document": result["document"]}
         else:
-            print(f"Error collecting DGMS report: {result["message"]}")
-            return {"dgms_document": None} # Or handle error state
+            error_msg = result['message']
+            print(f"Error collecting DGMS report: {error_msg}")
+            return {"dgms_document": None}
 
     async def request_news_scan_node(self, state: IncidentAnalysisState) -> dict:
         print(f"[{self.name}] Requesting news scan from NewsScannerAgent...")
@@ -196,13 +197,15 @@ class IncidentAnalysisAgent(Agent):
             return "not_duplicate"
 
     async def handle_news_article(self, message):
-        print(f"[{self.name}] Received new news article: {message["payload"]["title"]}")
-        initial_state = {"article": message["payload"]}
+        article_title = message['payload']['title']
+        print(f"[{self.name}] Received new news article: {article_title}")
+        initial_state = {"article": message['payload']}
         await self.news_article_graph.ainvoke(initial_state, config={"recursion_limit": 50})
 
     async def handle_dgms_report(self, message):
-        print(f"[{self.name}] Received new DGMS report link: {message["payload"]["report_id"]}")
-        initial_state = {"dgms_report_link": message["payload"]}
+        report_id = message['payload']['report_id']
+        print(f"[{self.name}] Received new DGMS report link: {report_id}")
+        initial_state = {"dgms_report_link": message['payload']}
         await self.dgms_report_graph.ainvoke(initial_state, config={"recursion_limit": 50})
 
 

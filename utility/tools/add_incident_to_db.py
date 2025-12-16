@@ -1,7 +1,6 @@
-from pymongo import MongoClient
-import certifi
 from datetime import datetime, timezone
-from utility.config import MONGODB_URI, MONGODB_DB, MONGODB_COLLECTION
+from utility.config import MONGODB_DB, MONGODB_COLLECTION
+from utility.db import get_mongo_client
 from schemas import Report, MineDetails, IncidentDetails, Verification
 from utility.tools.find_cause_code import FindCauseCodeTool
 from utility.local_search import google_web_search
@@ -17,7 +16,7 @@ class AddIncidentToDBTool:
     def __init__(self):
         self.name = "add_incident_to_db"
         self.description = "Adds a new incident to the database."
-        self.client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=4000, tlsCAFile=certifi.where())
+        self.client = get_mongo_client()
         self.coll = self.client[MONGODB_DB][MONGODB_COLLECTION]
 
     def use(self, incident: dict, source_url: str, raw_title: str) -> dict:

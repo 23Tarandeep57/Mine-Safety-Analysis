@@ -50,7 +50,13 @@ def initialize_components(api_key, persist_directory):
             print("Error: MONGODB_URI not found in environment.")
             sys.exit(1)
 
-        mongo_client = pymongo.MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
+        # Use SSL only for cloud MongoDB (mongodb+srv or mongodb.net)
+        is_cloud_mongo = "mongodb+srv" in MONGODB_URI or "mongodb.net" in MONGODB_URI
+        if is_cloud_mongo:
+            mongo_client = pymongo.MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
+        else:
+            mongo_client = pymongo.MongoClient(MONGODB_URI)
+        
         mongo_client.admin.command('ping')
         mongo_db = mongo_client[MONGODB_DB]
         mongo_collection = mongo_db[MONGODB_COLLECTION]

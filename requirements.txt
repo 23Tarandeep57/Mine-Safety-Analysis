@@ -13,6 +13,7 @@ unstructured[pdf]
 # LangChain + Groq integration
 langchain
 langchain-groq
+langchain-google-genai
 langchain-core
 langchain-community 
 langgraph

@@ -13,6 +13,7 @@ unstructured[pdf]
 # LangChain + Groq integration
 langchain
 langchain-groq
+langchain-google-genai
 langchain-core
 langchain-community 
 langgraph
@@ -20,6 +21,9 @@ langgraph
 # Web Framework
 Flask
 Flask-Cors
+
+# Redis for message queue and pub/sub
+redis
 
 # tesseract is a python wrapper
 

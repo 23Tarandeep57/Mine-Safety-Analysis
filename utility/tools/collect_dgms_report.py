@@ -8,7 +8,8 @@ class CollectDGMSReportTool:
         self.description = "Collects and parses a full DGMS report from a given link."
 
     def use(self, report_link: dict) -> dict:
-        print(f"Collecting full DGMS report from: {report_link["url"]}")
+        url = report_link.get('url', report_link.get('link', 'unknown'))
+        print(f"Collecting full DGMS report from: {url}")
         coll = ensure_mongo_collection()
         if coll is None:
             return {"status": "error", "message": "MongoDB not available."}

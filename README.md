@@ -152,15 +152,69 @@ All agents run concurrently via **asyncio**, offering:
 
 ## 🚀 Setup & Installation
 
-### 🧱 Prerequisites
+### 🐳 Option 1: Docker (Recommended)
 
-- Python **3.10+**  
-- **MongoDB** (Local or MongoDB Atlas)  
-- `git` installed
+The easiest way to run the entire stack with all dependencies:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
+cd Mine-Safety-Analysis
+
+# 2. Configure environment variables
+cp .env.example .env
+# Edit .env and add your API keys:
+# - GROQ_API_KEY (Required for LLM)
+# - GOOGLE_API_KEY (Required for Embeddings)
+# - TAVILY_API_KEY (Optional, for web search)
+
+# 3. Start all services
+docker-compose up --build
+
+# 4. Access the application
+# Frontend:  http://localhost:5173
+# API:       http://localhost:5001
+# MongoDB:   localhost:27017
+# Redis:     localhost:6379
+```
+
+**Docker Services:**
+| Service | Port | Description |
+|---------|------|-------------|
+| `frontend` | 5173 | React web interface |
+| `flask` | 5001 | REST API server |
+| `agent` | - | Multi-agent background worker |
+| `redis` | 6379 | Message queue & pub/sub |
+| `mongo` | 27017 | Incident database |
+
+**Useful Docker Commands:**
+```bash
+# Stop all services
+docker-compose down
+
+# View logs
+docker-compose logs -f flask agent
+
+# Rebuild after code changes
+docker-compose up --build
+
+# Reset databases (WARNING: deletes data)
+docker-compose down -v
+```
 
 ---
 
-### 🔧 Steps to Run
+### 🔧 Option 2: Manual Setup (Development)
+
+#### Prerequisites
+
+- Python **3.11+** (Recommended: 3.12)
+- **Node.js 18+**
+- **MongoDB** (Local or MongoDB Atlas)
+- **Redis** (Local or Redis Cloud)
+- `git` installed
+
+#### Backend Setup
 
 ```bash
 # 1. Clone the repository
@@ -168,7 +222,7 @@ git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
 cd Mine-Safety-Analysis
 
 # 2. Create and activate virtual environment
-python3 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate   # (Linux/Mac)
 venv\Scripts\activate      # (Windows)
 
@@ -177,7 +231,75 @@ pip install -r requirements.txt
 
 # 4. Configure environment variables
 cp .env.example .env
-# Edit .env to include MongoDB URI, API keys, etc.
+# Edit .env to include MongoDB URI, Redis URL, and API keys (GROQ, GOOGLE, TAVILY)
 
-# 5. Run the Flask server
+# 5. Start Redis (if not running)
+# You can use Docker for dependencies:
+docker-compose up -d redis mongo
+
+# 6. Run the Flask API server (Terminal 1)
 python app.py
+
+# 7. Run the Multi-Agent System (Terminal 2)
+python agent.py
+```
+
+---
+
+## 🖥️ Frontend Setup
+
+The web interface is built with **React + Vite** and provides:
+- 💬 **AI Chatbot** with real-time streaming responses
+- 📊 **Incident Analysis Dashboard** with YoY trends
+- 🚨 **Safety Alerts Viewer** with severity indicators
+
+### 📋 Prerequisites
+
+- **Node.js 18+** (Download: https://nodejs.org/)
+- **npm** or **yarn**
+
+### 🔧 Frontend Installation
+
+```bash
+# 1. Navigate to frontend directory
+cd Front-end/MSA
+
+# 2. Install dependencies
+npm install
+
+# 3. Start development server
+npm run dev
+```
+
+The frontend will start at: **http://localhost:5173**
+
+### 🌐 API Configuration
+
+The frontend connects to the Flask backend at `http://127.0.0.1:5001/api`.  
+If your backend runs on a different port, update the API URL in:
+
+```
+Front-end/MSA/src/utils/chatApi.js
+```
+
+### 📦 Build for Production
+
+```bash
+# Build optimized production bundle
+npm run build
+
+# Preview production build locally
+npm run preview
+```
+
+### 🔄 Running the Full Stack
+
+Open **3 terminals** and run:
+
+| Terminal | Command | Purpose |
+|----------|---------|---------|
+| **Terminal 1** | `python app.py` | Flask API Server (port 5001) |
+| **Terminal 2** | `python agent.py` | Multi-Agent System |
+| **Terminal 3** | `cd Front-end/MSA && npm run dev` | React Frontend (port 5173) |
+
+Then open **http://localhost:5173** in your browser.

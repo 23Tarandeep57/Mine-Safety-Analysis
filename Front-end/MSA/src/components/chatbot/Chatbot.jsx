@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { sendMessage as apiSendMessage } from '../../utils/chatApi';
 import './Chatbot.css';
 
 const Chatbot = () => {
@@ -14,17 +15,23 @@ const Chatbot = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-
-  const quickActions = [
-    { id: 1, text: "Recent accident patterns", icon: "📊" },
-    { id: 2, text: "Safety recommendations", icon: "⚠️" },
-    { id: 3, text: "Risk assessment", icon: "🔍" },
-    { id: 4, text: "Equipment status", icon: "⚙️" }
-  ];
+  const textareaRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const autoResizeTextarea = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+    }
+  };
+
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [inputValue]);
 
   useEffect(() => {
     scrollToBottom();
@@ -40,47 +47,52 @@ const Chatbot = () => {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    // Add user message and a placeholder for the bot's response
+    setMessages(prev => [
+      ...prev, 
+      userMessage,
+      {
+        id: prev.length + 2,
+        text: '', // Start with an empty text
+        sender: 'bot',
+        timestamp: new Date()
+      }
+    ]);
     setInputValue('');
     setIsTyping(true);
 
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
-      const botResponse = {
-        id: messages.length + 2,
-        text: generateResponse(messageText),
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botResponse]);
+    try {
+      await apiSendMessage(messageText, messages, (chunk) => {
+        setMessages(prev => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage && lastMessage.sender === 'bot') {
+            // Append the new chunk to the last bot message
+            const updatedMessages = [...prev];
+            updatedMessages[prev.length - 1] = {
+              ...lastMessage,
+              text: lastMessage.text + chunk
+            };
+            return updatedMessages;
+          }
+          return prev; // Should not happen if placeholder is set correctly
+        });
+      });
+    } catch (error) {
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage && lastMessage.sender === 'bot') {
+          const updatedMessages = [...prev];
+          updatedMessages[prev.length - 1] = {
+            ...lastMessage,
+            text: "Sorry, I'm having trouble connecting to the server. Please try again later."
+          };
+          return updatedMessages;
+        }
+        return prev;
+      });
+    } finally {
       setIsTyping(false);
-    }, 1500);
-  };
-
-  const generateResponse = (query) => {
-    // This is a placeholder. Replace with actual API integration
-    const responses = {
-      pattern: "Based on analysis of 150+ incidents, the most common patterns include: equipment failure during shift changes (23%), inadequate ventilation (18%), and human error during high-pressure operations (15%).",
-      safety: "Key safety recommendations: 1) Implement real-time monitoring systems, 2) Conduct bi-weekly safety drills, 3) Upgrade ventilation in sectors B and C, 4) Mandatory equipment checks before each shift.",
-      risk: "Current risk assessment shows: High risk in Zone A-3 (ventilation concerns), Medium risk in Zone B-1 (aging equipment), Low risk in Zone C-2. Immediate action recommended for Zone A-3.",
-      equipment: "Equipment status overview: 87% operational, 8% under maintenance, 5% flagged for replacement. Critical alerts: Drill #4 requires immediate inspection, Ventilation system #2 showing irregular patterns."
-    };
-
-    const lowerQuery = query.toLowerCase();
-    if (lowerQuery.includes('pattern') || lowerQuery.includes('accident')) {
-      return responses.pattern;
-    } else if (lowerQuery.includes('safety') || lowerQuery.includes('recommend')) {
-      return responses.safety;
-    } else if (lowerQuery.includes('risk') || lowerQuery.includes('assess')) {
-      return responses.risk;
-    } else if (lowerQuery.includes('equipment') || lowerQuery.includes('status')) {
-      return responses.equipment;
     }
-    return "I'm analyzing your query using our AI-powered safety intelligence system. Could you please provide more specific details about incidents, safety concerns, or risk assessments you'd like to explore?";
-  };
-
-  const handleQuickAction = (text) => {
-    handleSendMessage(text);
   };
 
   const handleKeyPress = (e) => {
@@ -183,27 +195,14 @@ const Chatbot = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Actions */}
-        <div className="quick-actions">
-          {quickActions.map((action) => (
-            <button
-              key={action.id}
-              className="quick-action-btn"
-              onClick={() => handleQuickAction(action.text)}
-            >
-              <span className="action-icon">{action.icon}</span>
-              <span className="action-text">{action.text}</span>
-            </button>
-          ))}
-        </div>
-
         {/* Input Area */}
         <div className="chatbot-input">
           <textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask about safety insights, patterns, or recommendations..."
+            placeholder="Ask about anything related to mine safety"
             rows="1"
           />
           <button 

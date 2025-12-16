@@ -1,6 +1,13 @@
-
 import asyncio
-from typing import Literal
+import json
+import redis
+import traceback
+from typing import Literal, TypedDict
+from datetime import datetime, timezone
+
+from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage, AIMessage
+
 from utility.agent_framework import Agent
 from utility.tools.extract_incident_from_news import ExtractIncidentFromNewsTool
 from utility.tools.check_incident_in_db import CheckIncidentInDBTool
@@ -12,21 +19,9 @@ from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
 from utility.tools.generate_audit_report import GenerateAuditReportTool
 from utility.tools.search_cause_code_db import SearchCauseCodeDBTool
 from utility.tools.find_place_of_accident_code import FindPlaceOfAccidentCodeTool
-from utility.config import DATA_DIR
-import json
-import inspect
-import traceback
-import os
-
-from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, List
-import operator
-from datetime import datetime, timezone
-
+from utility.config import DATA_DIR, REDIS_URL, ANALYSIS_INTERVAL_SECONDS, REPORT_GENERATION_INTERVAL_SECONDS
 from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
-from langchain_core.messages import HumanMessage, AIMessage
 
-BOT_RESPONSE_FILE = DATA_DIR / "bot_response.txt"
 EOS_TOKEN = "<EOS>"
 
 # Define the state for LangGraph
@@ -73,6 +68,9 @@ class IncidentAnalysisAgent(Agent):
         self.contextualize_q_chain = contextualize_q_chain
         self.qa_chain = qa_chain
         self.chat_history = [] # Maintain chat history for contextualization
+
+        # Redis client for streaming responses
+        self.redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
         # For agent collaboration
         self.news_scan_complete = asyncio.Event()
@@ -134,8 +132,9 @@ class IncidentAnalysisAgent(Agent):
         if result["status"] == "success":
             return {"dgms_document": result["document"]}
         else:
-            print(f"Error collecting DGMS report: {result["message"]}")
-            return {"dgms_document": None} # Or handle error state
+            error_msg = result['message']
+            print(f"Error collecting DGMS report: {error_msg}")
+            return {"dgms_document": None}
 
     async def request_news_scan_node(self, state: IncidentAnalysisState) -> dict:
         print(f"[{self.name}] Requesting news scan from NewsScannerAgent...")
@@ -198,100 +197,75 @@ class IncidentAnalysisAgent(Agent):
             return "not_duplicate"
 
     async def handle_news_article(self, message):
-        print(f"[{self.name}] Received new news article: {message["payload"]["title"]}")
-        initial_state = {"article": message["payload"]}
+        article_title = message['payload']['title']
+        print(f"[{self.name}] Received new news article: {article_title}")
+        initial_state = {"article": message['payload']}
         await self.news_article_graph.ainvoke(initial_state, config={"recursion_limit": 50})
 
     async def handle_dgms_report(self, message):
-        print(f"[{self.name}] Received new DGMS report link: {message["payload"]["report_id"]}")
-        initial_state = {"dgms_report_link": message["payload"]}
+        report_id = message['payload']['report_id']
+        print(f"[{self.name}] Received new DGMS report link: {report_id}")
+        initial_state = {"dgms_report_link": message['payload']}
         await self.dgms_report_graph.ainvoke(initial_state, config={"recursion_limit": 50})
 
 
-    @staticmethod
-    async def _call_maybe_awaitable(func, *args, timeout=None, **kwargs):
+    def stream_response_to_redis(self, qa_chain, chat_history, query, context, request_id):
         """
-        Call func(*args, **kwargs). If it returns an awaitable, await it.
-        If it's a regular function, run it in a thread via asyncio.to_thread.
-        Optionally apply timeout (seconds).
-        """
-        try:
-            result = func(*args, **kwargs)
-        except Exception as e:
-            # sync function raised immediately
-            raise
-
-        if asyncio.iscoroutine(result) or inspect.isawaitable(result):
-            if timeout:
-                return await asyncio.wait_for(result, timeout=timeout)
-            return await result
-        else:
-            # sync result or blocking function: run in thread
-            if timeout:
-                return await asyncio.wait_for(asyncio.to_thread(lambda: result), timeout=timeout)
-            return await asyncio.to_thread(lambda: result)
-
-
-
-    #helper function
-    def stream_response_to_file(self, qa_chain, chat_history, query, context, file_path):
-        """
-        Runs the streaming chain and writes chunks to a file.
+        Runs the streaming chain and publishes chunks to a Redis channel.
         This function is designed to be run in asyncio.to_thread.
         """
+        channel = f"chat:response:{request_id}"
         full_answer = ""
         try:
-            # Overwrite the file at the start of the response
-            with open(file_path, "w", encoding="utf-8") as f:
-                # .stream() is a synchronous generator
-                for chunk in qa_chain.stream({
-                    "input": query,
-                    "chat_history": chat_history,
-                    "context": context
-                }):
-                    f.write(chunk)
-                    f.flush()  # Force write to disk so the client can read it
-                    full_answer += chunk
+            # .stream() is a synchronous generator
+            for chunk in qa_chain.stream({
+                "input": query,
+                "chat_history": chat_history,
+                "context": context
+            }):
+                # Extract text from chunk (can be str, dict, or AIMessageChunk)
+                if isinstance(chunk, str):
+                    text = chunk
+                elif hasattr(chunk, 'content'):
+                    # AIMessageChunk or similar
+                    text = chunk.content
+                elif isinstance(chunk, dict):
+                    # Dict with 'answer' or 'text' key
+                    text = chunk.get('answer', chunk.get('text', chunk.get('output', '')))
+                else:
+                    text = str(chunk)
+                
+                if text:
+                    # Publish each chunk to Redis channel
+                    self.redis_client.publish(channel, text)
+                    full_answer += text
             
-            # After stream is done, append the End-of-Stream token
-            with open(file_path, "a", encoding="utf-8") as f:
-                f.write(EOS_TOKEN)
-                f.flush()
+            # After stream is done, publish the End-of-Stream token
+            self.redis_client.publish(channel, EOS_TOKEN)
             
         except Exception as e:
-            print(f"[Agent] ERROR in stream_response_to_file: {e}")
-            # Try to write an error message to the file
+            print(f"[Agent] ERROR in stream_response_to_redis: {e}")
+            import traceback
+            traceback.print_exc()
+            # Try to publish an error message
             try:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(f"I encountered an error while streaming. Please try again.<EOS>")
-                    f.flush()
+                self.redis_client.publish(channel, f"I encountered an error while streaming. Please try again.{EOS_TOKEN}")
             except Exception:
-                pass # Failed to write error
+                pass # Failed to publish error
         
         return full_answer
     
 
     async def handle_user_query(self, message):
         query = message["payload"]["query"]
-        print(f"[{self.name}] handle_user_query: {query!r}")
+        request_id = message["payload"].get("request_id")
+        print(f"[{self.name}] handle_user_query: {query!r} (request_id: {request_id})")
 
         try:
-
-            # 1) get standalone question (likely sync): use helper
-            # print(f"[{self.name}] Getting standalone question...")
-            # standalone_question = await self._call_maybe_awaitable(
-            #     get_standalone_question,
-            #     self.contextualize_q_chain,
-            #     self.chat_history,
-            #     query,
-            #     timeout=30,
-            # )
-            # print(f"[{self.name}] Standalone question: {standalone_question!r}")
-
-            # --- RAG Process (Same as before) ---
-            print(f"[{self.name}] DEBUG: Getting standalone question...")
+            # Get standalone question for context-aware retrieval
+            print(f"[{self.name}] Getting standalone question...")
             standalone_question = await get_standalone_question(self.contextualize_q_chain, self.chat_history, query)
-            print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
+            print(f"[{self.name}] Standalone question: {standalone_question}")
 
 
             # 2) retrieve from vector store and mongo in parallel (non-blocking)
@@ -304,12 +278,8 @@ class IncidentAnalysisAgent(Agent):
 
             print(f"[{self.name}] Retrieved {len(scored_chroma_docs)} chroma docs and {len(mongo_contexts)} mongo contexts.")
 
-            top_chroma_score = 0.0
-            chroma_docs = []
-            if scored_chroma_docs:
-                # scored_chroma_docs is list of (doc, score) pairs per your code earlier
-                top_chroma_score = scored_chroma_docs[0][1]
-                chroma_docs = [doc for doc, score in scored_chroma_docs]
+            # Extract documents from scored results
+            chroma_docs = [doc for doc, _ in scored_chroma_docs] if scored_chroma_docs else []
             chroma_context_str = format_docs(chroma_docs)
             mongo_context_str = "\n\n".join(mongo_contexts)
 
@@ -320,143 +290,41 @@ class IncidentAnalysisAgent(Agent):
                 f"--- Place of Accident Code Data ---\n{place_of_accident_code_context}"
             )
             
-            # --- !! KEY CHANGE !! ---
-            # Instead of self.qa_chain.invoke, we run our new streaming 
-            # file writer in a thread to keep the agent non-blocking.
-            
-            print(f"[{self.name}] DEBUG: Streaming QA chain to file...")
+            # Stream response to Redis pub/sub for real-time delivery to client
+            print(f"[{self.name}] DEBUG: Streaming QA chain to Redis channel...")
             full_answer = await asyncio.to_thread(
-                self.stream_response_to_file,
-                self.qa_chain,  # This MUST be your *streaming* chain
+                self.stream_response_to_redis,
+                self.qa_chain,
                 self.chat_history,
                 query,
                 combined_context,
-                BOT_RESPONSE_FILE # Pass the file path
+                request_id
             )
             print(f"[{self.name}] DEBUG: QA stream finished.")
 
-# <<<<<<< HEAD
-#             # 3) call QA chain safely (it may be async or sync)
-#             print(f"[{self.name}] Invoking QA chain (with timeout)...")
-#             # you can tune timeout (e.g., 60s)
-#             qa_timeout = int(os.environ.get("QA_TIMEOUT_SEC", "60"))
-#             answer = await self._call_maybe_awaitable(
-#                 self.qa_chain.invoke,
-#                 {
-#                     "input": query,
-#                     "chat_history": self.chat_history,
-#                     "context": combined_context
-#                 },
-#                 timeout=qa_timeout
-#             )
-
-#             # 4) update chat history with lock
-#             async with self.chat_history_lock:
-#                 # keep a bounded history if needed
-#                 MAX_HISTORY = 50
-#                 self.chat_history.append(HumanMessage(content=query))
-#                 self.chat_history.append(AIMessage(content=answer))
-#                 if len(self.chat_history) > MAX_HISTORY:
-#                     # drop oldest pair
-#                     self.chat_history = self.chat_history[-MAX_HISTORY:]
-
-#             # 5) publish final answer (ensure publish is awaitable)
-#             print(f"[{self.name}] Publishing final answer...")
-#             publish_coro = self.publish("final_answer", {"answer": answer})
-#             if inspect.isawaitable(publish_coro):
-#                 await publish_coro
-#             else:
-#                 # publish may be sync, run in thread
-#                 await asyncio.to_thread(lambda: publish_coro)
-# =======
-            # Update chat history (using the full answer)
+            # Update chat history
             self.chat_history.append(HumanMessage(content=query))
             self.chat_history.append(AIMessage(content=full_answer))
-
-            # We no longer need to publish a "final_answer" message,
-            # because the client is reading the file directly.
-# >>>>>>> origin/mahima_branch
 
             print(f"[{self.name}] Final answer published.")
 
         except asyncio.TimeoutError:
             tb = traceback.format_exc()
             print(f"[{self.name}] QA timed out. {tb}")
-            await self.publish("final_answer", {"answer": "The system timed out while generating an answer. Try again later."})
+            if request_id:
+                try:
+                    channel = f"chat:response:{request_id}"
+                    self.redis_client.publish(channel, f"The system timed out while generating an answer. Try again later.{EOS_TOKEN}")
+                except Exception:
+                    pass
         except Exception as e:
-# <<<<<<< HEAD
-#             tb = traceback.format_exc()
-#             print(f"[{self.name}] ERROR in handle_user_query: {e}\n{tb}")
-#             try:
-#                 await self.publish("final_answer", {"answer": "I encountered an internal error. Please try again."})
-#             except Exception:
-#                 # swallow publish failure to avoid crashing
-#                 print(f"[{self.name}] Failed to publish error message.")
-# =======
             print(f"[{self.name}] ERROR in handle_user_query: {e}")
-            # Try to write the error to the file for the client to see
-            try:
-                with open(BOT_RESPONSE_FILE, "w", encoding="utf-8") as f:
-                    f.write(f"I encountered an error: {e}<EOS>")
-                    f.flush()
-            except Exception:
-                pass
-
-    # async def handle_user_query(self, message):
-    #     query = message["payload"]["query"]
-    #     print(f"[{self.name}] DEBUG: Handling user query: {query}")
-
-    #     try:
-    #         # Perform RAG process
-    #         print(f"[{self.name}] DEBUG: Getting standalone question...")
-    #         standalone_question = await asyncio.to_thread(get_standalone_question, self.contextualize_q_chain, self.chat_history, query)
-    #         print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
-
-    #         print(f"[{self.name}] DEBUG: Retrieving from ChromaDB...")
-    #         scored_chroma_docs = await asyncio.to_thread(retrieve_from_chroma, self.vector_store, standalone_question)
-    #         print(f"[{self.name}] DEBUG: Retrieved {len(scored_chroma_docs)} docs from ChromaDB.")
-
-    #         print(f"[{self.name}] DEBUG: Retrieving from MongoDB...")
-    #         mongo_contexts = await asyncio.to_thread(retrieve_from_mongodb, self.mongo_collection, standalone_question)
-    #         print(f"[{self.name}] DEBUG: Retrieved {len(mongo_contexts)} contexts from MongoDB.")
-
-    #         top_chroma_score = 0.0
-    #         if scored_chroma_docs:
-    #             top_chroma_score = scored_chroma_docs[0][1]
-    #             chroma_docs = [doc for doc, score in scored_chroma_docs]
-    #         else:
-    #             chroma_docs = []
-
-    #         chroma_context_str = format_docs(chroma_docs)
-    #         mongo_context_str = "\n\n".join(mongo_contexts)
-
-    #         combined_context = (
-    #             f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
-    #             f"--- Real-time Data (Live) ---\n{mongo_context_str}"
-    #         )
-
-    #         print(f"[{self.name}] DEBUG: Invoking QA chain...")
-    #         answer = await asyncio.to_thread(self.qa_chain.invoke, {
-    #             "input": query,
-    #             "chat_history": self.chat_history,
-    #             "context": combined_context
-    #         })
-    #         print(f"[{self.name}] DEBUG: QA chain finished.")
-
-    #         # Update chat history
-    #         self.chat_history.append(HumanMessage(content=query))
-    #         self.chat_history.append(AIMessage(content=answer))
-
-    #         # Publish the final answer
-    #         print(f"[{self.name}] DEBUG: Publishing final answer...")
-    #         await self.publish("final_answer", {"answer": answer})
-    #         print(f"[{self.name}] DEBUG: Final answer published.")
-
-    #     except Exception as e:
-    #         print(f"[{self.name}] ERROR in handle_user_query: {e}")
-    #         await self.publish("final_answer", {"answer": "I encountered an error while processing your request. Please try again."})
-
-# >>>>>>> origin/mahima_branch
+            if request_id:
+                try:
+                    channel = f"chat:response:{request_id}"
+                    self.redis_client.publish(channel, f"I encountered an error: {e}{EOS_TOKEN}")
+                except Exception:
+                    pass
 
     async def _run_periodic_analysis(self):
         while self.running:
@@ -485,7 +353,7 @@ class IncidentAnalysisAgent(Agent):
                     for alert in alerts:
                         print(f"[{self.name}] Generated Alert: {alert}")
                         await self.publish("safety_alert", {"alert_message": alert})
-            await asyncio.sleep(900) # Run analysis every 15 minutes
+            await asyncio.sleep(ANALYSIS_INTERVAL_SECONDS)
 
     async def _run_periodic_report_generation(self):
         while self.running:
@@ -496,7 +364,7 @@ class IncidentAnalysisAgent(Agent):
                 await self.publish("audit_report_generated", {"report_path": report_path})
             except NotImplementedError as e:
                 print(f"[{self.name}] ERROR in _run_periodic_report_generation: {e}")
-            await asyncio.sleep(86400) # Generate report every 24 hours
+            await asyncio.sleep(REPORT_GENERATION_INTERVAL_SECONDS)
 
     async def run(self):
         asyncio.create_task(self._run_periodic_analysis())

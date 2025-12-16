@@ -1,25 +1,22 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from utility.db import ensure_mongo_collection
+from utility.config import DATA_DIR, REDIS_URL, CHAT_TIMEOUT_SECONDS
 from bson import json_util
 import json
 import os
 import time
-from utility.config import DATA_DIR
+import uuid
+import redis
 
-USER_QUERY_FILE = DATA_DIR / "user_query.txt"
-BOT_RESPONSE_FILE = DATA_DIR / "bot_response.txt"
-EOS_TOKEN = "<EOS>"
-WAIT_TIMEOUT = 120  # seconds
+redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+
+CHAT_QUEUE = "chat:queue"
 
 app = Flask(__name__)
-CORS(app) # This will allow the frontend to make requests to our backend
+CORS(app)
 
-# --- Database Connection ---
 incidents_collection = ensure_mongo_collection()
-
-
-# --- API Endpoints ---
 
 @app.route("/api/incidents", methods=["GET"])
 def get_incidents():
@@ -56,63 +53,116 @@ def get_alerts():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/chatbot", methods=["POST"])
-def chatbot_endpoint():
-    if not request.is_json:
-        return jsonify({
-            "error": "Unsupported Media Type",
-            "message": "Request Content-Type must be 'application/json'"
-        }), 415
-
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    """
+    Endpoint to handle chat messages using Redis queue and pub/sub.
+    
+    Flow:
+    1. Generate unique request ID
+    2. Push query to Redis queue (agent will pick it up)
+    3. Subscribe to response channel for this request
+    4. Stream responses back to client via SSE
+    """
     data = request.get_json()
     user_message = data.get("message")
+    history = data.get("history", [])
 
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
+    # Generate unique request ID
+    request_id = str(uuid.uuid4())
+    response_channel = f"chat:response:{request_id}"
+
     try:
-        # Ensure files are clear before starting
-        if USER_QUERY_FILE.exists():
-            with open(USER_QUERY_FILE, "w") as f: f.truncate(0)
-        if BOT_RESPONSE_FILE.exists():
-            with open(BOT_RESPONSE_FILE, "w") as f: f.truncate(0)
-
-        # Write the query to the user_query.txt file to trigger the agent
-        with open(USER_QUERY_FILE, "w", encoding="utf-8") as f:
-            f.write(user_message)
-
-        # --- Wait for the agent's response ---
-        start_time = time.time()
-        while time.time() - start_time < WAIT_TIMEOUT:
-            if BOT_RESPONSE_FILE.exists() and BOT_RESPONSE_FILE.stat().st_size > 0:
-                with open(BOT_RESPONSE_FILE, "r", encoding="utf-8") as f:
-                    response_text = f.read()
-                
-                if EOS_TOKEN in response_text:
-                    # Clean up the response and remove the token
-                    final_response = response_text.split(EOS_TOKEN)[0].strip()
-                    
-                    # Clean up files for the next request
-                    with open(USER_QUERY_FILE, "w") as f: f.truncate(0)
-                    with open(BOT_RESPONSE_FILE, "w") as f: f.truncate(0)
-                    
-                    return jsonify({"response": final_response})
+        # Push query to Redis queue for agent to process
+        query_payload = {
+            "request_id": request_id,
+            "query": user_message,
+            "history": history
+        }
+        redis_client.lpush(CHAT_QUEUE, json.dumps(query_payload))
+        
+        def stream_response():
+            """Generator that subscribes to Redis pub/sub for streaming response."""
+            pubsub = redis_client.pubsub()
+            pubsub.subscribe(response_channel)
             
-            time.sleep(0.2) # Poll every 200ms
+            start_time = time.time()
+            EOS_TOKEN = "<EOS>"  # Must match agent's EOS token
+            
+            try:
+                for message in pubsub.listen():
+                    # Check timeout
+                    if time.time() - start_time > CHAT_TIMEOUT_SECONDS:
+                        yield f"data: {json.dumps({'error': 'Request timed out'})}\n\n"
+                        break
+                    
+                    # Skip subscription confirmation messages
+                    if message['type'] != 'message':
+                        continue
+                    
+                    # Get the raw text data from Redis
+                    raw_data = message['data']
+                    if isinstance(raw_data, bytes):
+                        raw_data = raw_data.decode('utf-8')
+                    
+                    # Check for end of stream token
+                    if EOS_TOKEN in raw_data:
+                        # Send any text before EOS token
+                        text_before_eos = raw_data.replace(EOS_TOKEN, '')
+                        if text_before_eos:
+                            yield f"data: {json.dumps({'text': text_before_eos})}\n\n"
+                        yield f"data: {json.dumps({'end_of_stream': True})}\n\n"
+                        break
+                    
+                    # Stream the text chunk
+                    if raw_data:
+                        yield f"data: {json.dumps({'text': raw_data})}\n\n"
+                        
+            finally:
+                pubsub.unsubscribe(response_channel)
+                pubsub.close()
 
-        return jsonify({"error": "Request timed out. The agent did not respond in time."}), 504
+        return Response(stream_response(), mimetype='text/event-stream')
 
+    except redis.RedisError as e:
+        print(f"Redis error: {e}")
+        return jsonify({"error": "Message queue unavailable"}), 503
     except Exception as e:
-        return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
+        print(f"Error during chat setup: {e}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 
-@app.route("/api/debug", methods=["GET", "POST"])
-def debug_endpoint():
-    return jsonify({"method": request.method})
+@app.route("/api/health", methods=["GET"])
+def health():
+    """Health check endpoint for Docker/Kubernetes."""
+    try:
+        redis_client.ping()
+        redis_status = "healthy"
+    except:
+        redis_status = "unhealthy"
+    
+    try:
+        if incidents_collection is not None:
+            incidents_collection.find_one()
+            mongo_status = "healthy"
+        else:
+            mongo_status = "unhealthy"
+    except:
+        mongo_status = "unhealthy"
+    
+    status = "healthy" if redis_status == "healthy" and mongo_status == "healthy" else "unhealthy"
+    
+    return jsonify({
+        "status": status,
+        "services": {
+            "redis": redis_status,
+            "mongodb": mongo_status
+        }
+    }), 200 if status == "healthy" else 503
 
-# --- Main Block ---
 
 if __name__ == "__main__":
-    # Note: The multi-agent system in `agent.py` should be run as a separate process.
-    # This Flask app is only for serving the data and interacting with the agent via files.
-    app.run(debug=True, port=5001)
+    app.run(host="0.0.0.0", port=5001, debug=True)

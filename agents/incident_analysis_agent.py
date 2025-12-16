@@ -1,5 +1,7 @@
 
 import asyncio
+import json
+import redis
 from typing import Literal
 from utility.agent_framework import Agent
 from utility.tools.extract_incident_from_news import ExtractIncidentFromNewsTool
@@ -12,8 +14,7 @@ from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
 from utility.tools.generate_audit_report import GenerateAuditReportTool
 from utility.tools.search_cause_code_db import SearchCauseCodeDBTool
 from utility.tools.find_place_of_accident_code import FindPlaceOfAccidentCodeTool
-from utility.config import DATA_DIR
-import json
+from utility.config import DATA_DIR, REDIS_URL
 import inspect
 import traceback
 import os
@@ -26,7 +27,6 @@ from datetime import datetime, timezone
 from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
 from langchain_core.messages import HumanMessage, AIMessage
 
-BOT_RESPONSE_FILE = DATA_DIR / "bot_response.txt"
 EOS_TOKEN = "<EOS>"
 
 # Define the state for LangGraph
@@ -73,6 +73,9 @@ class IncidentAnalysisAgent(Agent):
         self.contextualize_q_chain = contextualize_q_chain
         self.qa_chain = qa_chain
         self.chat_history = [] # Maintain chat history for contextualization
+
+        # Redis client for streaming responses
+        self.redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
         # For agent collaboration
         self.news_scan_complete = asyncio.Event()
@@ -234,46 +237,42 @@ class IncidentAnalysisAgent(Agent):
 
 
     #helper function
-    def stream_response_to_file(self, qa_chain, chat_history, query, context, file_path):
+    def stream_response_to_redis(self, qa_chain, chat_history, query, context, request_id):
         """
-        Runs the streaming chain and writes chunks to a file.
+        Runs the streaming chain and publishes chunks to a Redis channel.
         This function is designed to be run in asyncio.to_thread.
         """
+        channel = f"chat:response:{request_id}"
         full_answer = ""
         try:
-            # Overwrite the file at the start of the response
-            with open(file_path, "w", encoding="utf-8") as f:
-                # .stream() is a synchronous generator
-                for chunk in qa_chain.stream({
-                    "input": query,
-                    "chat_history": chat_history,
-                    "context": context
-                }):
-                    f.write(chunk)
-                    f.flush()  # Force write to disk so the client can read it
-                    full_answer += chunk
+            # .stream() is a synchronous generator
+            for chunk in qa_chain.stream({
+                "input": query,
+                "chat_history": chat_history,
+                "context": context
+            }):
+                # Publish each chunk to Redis channel
+                self.redis_client.publish(channel, chunk)
+                full_answer += chunk
             
-            # After stream is done, append the End-of-Stream token
-            with open(file_path, "a", encoding="utf-8") as f:
-                f.write(EOS_TOKEN)
-                f.flush()
+            # After stream is done, publish the End-of-Stream token
+            self.redis_client.publish(channel, EOS_TOKEN)
             
         except Exception as e:
-            print(f"[Agent] ERROR in stream_response_to_file: {e}")
-            # Try to write an error message to the file
+            print(f"[Agent] ERROR in stream_response_to_redis: {e}")
+            # Try to publish an error message
             try:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(f"I encountered an error while streaming. Please try again.<EOS>")
-                    f.flush()
+                self.redis_client.publish(channel, f"I encountered an error while streaming. Please try again.{EOS_TOKEN}")
             except Exception:
-                pass # Failed to write error
+                pass # Failed to publish error
         
         return full_answer
     
 
     async def handle_user_query(self, message):
         query = message["payload"]["query"]
-        print(f"[{self.name}] handle_user_query: {query!r}")
+        request_id = message["payload"].get("request_id")
+        print(f"[{self.name}] handle_user_query: {query!r} (request_id: {request_id})")
 
         try:
 
@@ -320,18 +319,15 @@ class IncidentAnalysisAgent(Agent):
                 f"--- Place of Accident Code Data ---\n{place_of_accident_code_context}"
             )
             
-            # --- !! KEY CHANGE !! ---
-            # Instead of self.qa_chain.invoke, we run our new streaming 
-            # file writer in a thread to keep the agent non-blocking.
-            
-            print(f"[{self.name}] DEBUG: Streaming QA chain to file...")
+            # Stream response to Redis pub/sub for real-time delivery to client
+            print(f"[{self.name}] DEBUG: Streaming QA chain to Redis channel...")
             full_answer = await asyncio.to_thread(
-                self.stream_response_to_file,
+                self.stream_response_to_redis,
                 self.qa_chain,  # This MUST be your *streaming* chain
                 self.chat_history,
                 query,
                 combined_context,
-                BOT_RESPONSE_FILE # Pass the file path
+                request_id  # Pass the request_id for Redis channel
             )
             print(f"[{self.name}] DEBUG: QA stream finished.")
 
@@ -382,25 +378,22 @@ class IncidentAnalysisAgent(Agent):
         except asyncio.TimeoutError:
             tb = traceback.format_exc()
             print(f"[{self.name}] QA timed out. {tb}")
-            await self.publish("final_answer", {"answer": "The system timed out while generating an answer. Try again later."})
+            # Publish timeout error to Redis
+            if request_id:
+                try:
+                    channel = f"chat:response:{request_id}"
+                    self.redis_client.publish(channel, f"The system timed out while generating an answer. Try again later.{EOS_TOKEN}")
+                except Exception:
+                    pass
         except Exception as e:
-# <<<<<<< HEAD
-#             tb = traceback.format_exc()
-#             print(f"[{self.name}] ERROR in handle_user_query: {e}\n{tb}")
-#             try:
-#                 await self.publish("final_answer", {"answer": "I encountered an internal error. Please try again."})
-#             except Exception:
-#                 # swallow publish failure to avoid crashing
-#                 print(f"[{self.name}] Failed to publish error message.")
-# =======
             print(f"[{self.name}] ERROR in handle_user_query: {e}")
-            # Try to write the error to the file for the client to see
-            try:
-                with open(BOT_RESPONSE_FILE, "w", encoding="utf-8") as f:
-                    f.write(f"I encountered an error: {e}<EOS>")
-                    f.flush()
-            except Exception:
-                pass
+            # Try to publish the error to Redis for the client to see
+            if request_id:
+                try:
+                    channel = f"chat:response:{request_id}"
+                    self.redis_client.publish(channel, f"I encountered an error: {e}{EOS_TOKEN}")
+                except Exception:
+                    pass
 
     # async def handle_user_query(self, message):
     #     query = message["payload"]["query"]

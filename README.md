@@ -163,7 +163,10 @@ cd Mine-Safety-Analysis
 
 # 2. Configure environment variables
 cp .env.example .env
-# Edit .env and add your GROQ_API_KEY
+# Edit .env and add your API keys:
+# - GROQ_API_KEY (Required for LLM)
+# - GOOGLE_API_KEY (Required for Embeddings)
+# - TAVILY_API_KEY (Optional, for web search)
 
 # 3. Start all services
 docker-compose up --build
@@ -205,7 +208,7 @@ docker-compose down -v
 
 #### Prerequisites
 
-- Python **3.10+**  
+- Python **3.11+** (Recommended: 3.12)
 - **Node.js 18+**
 - **MongoDB** (Local or MongoDB Atlas)
 - **Redis** (Local or Redis Cloud)
@@ -219,7 +222,7 @@ git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
 cd Mine-Safety-Analysis
 
 # 2. Create and activate virtual environment
-python3 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate   # (Linux/Mac)
 venv\Scripts\activate      # (Windows)
 
@@ -228,18 +231,16 @@ pip install -r requirements.txt
 
 # 4. Configure environment variables
 cp .env.example .env
-# Edit .env to include MongoDB URI, Redis URL, API keys, etc.
+# Edit .env to include MongoDB URI, Redis URL, and API keys (GROQ, GOOGLE, TAVILY)
 
 # 5. Start Redis (if not running)
-redis-server
+# You can use Docker for dependencies:
+docker-compose up -d redis mongo
 
-# 6. Start MongoDB (if not running)
-mongod
-
-# 7. Run the Flask API server (Terminal 1)
+# 6. Run the Flask API server (Terminal 1)
 python app.py
 
-# 8. Run the Multi-Agent System (Terminal 2)
+# 7. Run the Multi-Agent System (Terminal 2)
 python agent.py
 ```
 

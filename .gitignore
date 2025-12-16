@@ -60,3 +60,4 @@ data/
 .env
 chroma_db/
 cause_code_db/
+node_modules/

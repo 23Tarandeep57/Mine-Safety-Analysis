@@ -6,9 +6,13 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 SUMMARIZER = os.environ.get("SUMMARIZER")
 
+# MongoDB Configuration
 MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DB = os.environ.get("MONGODB_DB", "mine_safety")
 MONGODB_COLLECTION = os.environ.get("MONGODB_COLLECTION", "dgms_reports")
+
+# Redis Configuration
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 
 BASE_URL = "https://www.dgms.gov.in/UserView/index?mid=1362"
 

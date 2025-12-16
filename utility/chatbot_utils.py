@@ -6,25 +6,22 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 
 from prompts import CONTEXTUALIZE_Q_SYSTEM_PROMPT, QA_SYSTEM_PROMPT
+from utility.config import (
+    EMBEDDING_MODEL,
+    LLM_MODEL,
+    MONGODB_URI,
+    MONGODB_DB,
+    MONGODB_COLLECTION
+)
 
-# -------------------- CONFIG --------------------
 load_dotenv()
 
-# --- Chroma Config ---
+# Chroma persist directory (relative to this file)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PERSIST_DIRECTORY = os.path.join(SCRIPT_DIR, "chroma_db")
-EMBEDDING_MODEL = "models/text-embedding-004"
-LLM_MODEL = "models/gemini-2.5-flash"
-
-# --- MongoDB Config ---
-MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
-MONGO_DB_NAME = os.getenv("MONGODB_DB", "mines_safety")
-MONGO_COLLECTION_NAME = os.getenv("MONGODB_COLLECTION", "dgms_reports")
-# ------------------------------------------------
 
 def load_api_key():
     """Loads the Google API Key from the .env file."""
@@ -49,14 +46,14 @@ def initialize_components(api_key, persist_directory):
         sys.exit(1)
 
     try:
-        if not MONGO_CONNECTION_STRING:
-            print("Error: MONGO_CONNECTION_STRING not found in .env file.")
+        if not MONGODB_URI:
+            print("Error: MONGODB_URI not found in environment.")
             sys.exit(1)
 
-        mongo_client = pymongo.MongoClient(MONGO_CONNECTION_STRING, tlsCAFile=certifi.where())
+        mongo_client = pymongo.MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
         mongo_client.admin.command('ping')
-        mongo_db = mongo_client[MONGO_DB_NAME]
-        mongo_collection = mongo_db[MONGO_COLLECTION_NAME]
+        mongo_db = mongo_client[MONGODB_DB]
+        mongo_collection = mongo_db[MONGODB_COLLECTION]
         print("--- Components Initialized (Chroma & MongoDB) ---")
         return llm, vector_store, mongo_collection
     except Exception as e:

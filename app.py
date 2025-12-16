@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from utility.db import ensure_mongo_collection
-from utility.config import DATA_DIR, REDIS_URL
+from utility.config import DATA_DIR, REDIS_URL, CHAT_TIMEOUT_SECONDS
 from bson import json_util
 import json
 import os
@@ -12,7 +12,6 @@ import redis
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 CHAT_QUEUE = "chat:queue"
-CHAT_TIMEOUT = 120
 
 app = Flask(__name__)
 CORS(app)
@@ -95,7 +94,7 @@ def chat():
             try:
                 for message in pubsub.listen():
                     # Check timeout
-                    if time.time() - start_time > CHAT_TIMEOUT:
+                    if time.time() - start_time > CHAT_TIMEOUT_SECONDS:
                         yield f"data: {json.dumps({'error': 'Request timed out'})}\n\n"
                         break
                     

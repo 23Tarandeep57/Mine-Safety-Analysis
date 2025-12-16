@@ -1,8 +1,13 @@
-
 import asyncio
 import json
 import redis
-from typing import Literal
+import traceback
+from typing import Literal, TypedDict
+from datetime import datetime, timezone
+
+from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage, AIMessage
+
 from utility.agent_framework import Agent
 from utility.tools.extract_incident_from_news import ExtractIncidentFromNewsTool
 from utility.tools.check_incident_in_db import CheckIncidentInDBTool
@@ -14,18 +19,8 @@ from utility.tools.generate_safety_alerts import GenerateSafetyAlertsTool
 from utility.tools.generate_audit_report import GenerateAuditReportTool
 from utility.tools.search_cause_code_db import SearchCauseCodeDBTool
 from utility.tools.find_place_of_accident_code import FindPlaceOfAccidentCodeTool
-from utility.config import DATA_DIR, REDIS_URL
-import inspect
-import traceback
-import os
-
-from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, List
-import operator
-from datetime import datetime, timezone
-
+from utility.config import DATA_DIR, REDIS_URL, ANALYSIS_INTERVAL_SECONDS, REPORT_GENERATION_INTERVAL_SECONDS
 from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
-from langchain_core.messages import HumanMessage, AIMessage
 
 EOS_TOKEN = "<EOS>"
 
@@ -211,32 +206,6 @@ class IncidentAnalysisAgent(Agent):
         await self.dgms_report_graph.ainvoke(initial_state, config={"recursion_limit": 50})
 
 
-    @staticmethod
-    async def _call_maybe_awaitable(func, *args, timeout=None, **kwargs):
-        """
-        Call func(*args, **kwargs). If it returns an awaitable, await it.
-        If it's a regular function, run it in a thread via asyncio.to_thread.
-        Optionally apply timeout (seconds).
-        """
-        try:
-            result = func(*args, **kwargs)
-        except Exception as e:
-            # sync function raised immediately
-            raise
-
-        if asyncio.iscoroutine(result) or inspect.isawaitable(result):
-            if timeout:
-                return await asyncio.wait_for(result, timeout=timeout)
-            return await result
-        else:
-            # sync result or blocking function: run in thread
-            if timeout:
-                return await asyncio.wait_for(asyncio.to_thread(lambda: result), timeout=timeout)
-            return await asyncio.to_thread(lambda: result)
-
-
-
-    #helper function
     def stream_response_to_redis(self, qa_chain, chat_history, query, context, request_id):
         """
         Runs the streaming chain and publishes chunks to a Redis channel.
@@ -275,22 +244,10 @@ class IncidentAnalysisAgent(Agent):
         print(f"[{self.name}] handle_user_query: {query!r} (request_id: {request_id})")
 
         try:
-
-            # 1) get standalone question (likely sync): use helper
-            # print(f"[{self.name}] Getting standalone question...")
-            # standalone_question = await self._call_maybe_awaitable(
-            #     get_standalone_question,
-            #     self.contextualize_q_chain,
-            #     self.chat_history,
-            #     query,
-            #     timeout=30,
-            # )
-            # print(f"[{self.name}] Standalone question: {standalone_question!r}")
-
-            # --- RAG Process (Same as before) ---
-            print(f"[{self.name}] DEBUG: Getting standalone question...")
+            # Get standalone question for context-aware retrieval
+            print(f"[{self.name}] Getting standalone question...")
             standalone_question = await get_standalone_question(self.contextualize_q_chain, self.chat_history, query)
-            print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
+            print(f"[{self.name}] Standalone question: {standalone_question}")
 
 
             # 2) retrieve from vector store and mongo in parallel (non-blocking)
@@ -303,12 +260,8 @@ class IncidentAnalysisAgent(Agent):
 
             print(f"[{self.name}] Retrieved {len(scored_chroma_docs)} chroma docs and {len(mongo_contexts)} mongo contexts.")
 
-            top_chroma_score = 0.0
-            chroma_docs = []
-            if scored_chroma_docs:
-                # scored_chroma_docs is list of (doc, score) pairs per your code earlier
-                top_chroma_score = scored_chroma_docs[0][1]
-                chroma_docs = [doc for doc, score in scored_chroma_docs]
+            # Extract documents from scored results
+            chroma_docs = [doc for doc, _ in scored_chroma_docs] if scored_chroma_docs else []
             chroma_context_str = format_docs(chroma_docs)
             mongo_context_str = "\n\n".join(mongo_contexts)
 
@@ -323,62 +276,23 @@ class IncidentAnalysisAgent(Agent):
             print(f"[{self.name}] DEBUG: Streaming QA chain to Redis channel...")
             full_answer = await asyncio.to_thread(
                 self.stream_response_to_redis,
-                self.qa_chain,  # This MUST be your *streaming* chain
+                self.qa_chain,
                 self.chat_history,
                 query,
                 combined_context,
-                request_id  # Pass the request_id for Redis channel
+                request_id
             )
             print(f"[{self.name}] DEBUG: QA stream finished.")
 
-# <<<<<<< HEAD
-#             # 3) call QA chain safely (it may be async or sync)
-#             print(f"[{self.name}] Invoking QA chain (with timeout)...")
-#             # you can tune timeout (e.g., 60s)
-#             qa_timeout = int(os.environ.get("QA_TIMEOUT_SEC", "60"))
-#             answer = await self._call_maybe_awaitable(
-#                 self.qa_chain.invoke,
-#                 {
-#                     "input": query,
-#                     "chat_history": self.chat_history,
-#                     "context": combined_context
-#                 },
-#                 timeout=qa_timeout
-#             )
-
-#             # 4) update chat history with lock
-#             async with self.chat_history_lock:
-#                 # keep a bounded history if needed
-#                 MAX_HISTORY = 50
-#                 self.chat_history.append(HumanMessage(content=query))
-#                 self.chat_history.append(AIMessage(content=answer))
-#                 if len(self.chat_history) > MAX_HISTORY:
-#                     # drop oldest pair
-#                     self.chat_history = self.chat_history[-MAX_HISTORY:]
-
-#             # 5) publish final answer (ensure publish is awaitable)
-#             print(f"[{self.name}] Publishing final answer...")
-#             publish_coro = self.publish("final_answer", {"answer": answer})
-#             if inspect.isawaitable(publish_coro):
-#                 await publish_coro
-#             else:
-#                 # publish may be sync, run in thread
-#                 await asyncio.to_thread(lambda: publish_coro)
-# =======
-            # Update chat history (using the full answer)
+            # Update chat history
             self.chat_history.append(HumanMessage(content=query))
             self.chat_history.append(AIMessage(content=full_answer))
-
-            # We no longer need to publish a "final_answer" message,
-            # because the client is reading the file directly.
-# >>>>>>> origin/mahima_branch
 
             print(f"[{self.name}] Final answer published.")
 
         except asyncio.TimeoutError:
             tb = traceback.format_exc()
             print(f"[{self.name}] QA timed out. {tb}")
-            # Publish timeout error to Redis
             if request_id:
                 try:
                     channel = f"chat:response:{request_id}"
@@ -387,69 +301,12 @@ class IncidentAnalysisAgent(Agent):
                     pass
         except Exception as e:
             print(f"[{self.name}] ERROR in handle_user_query: {e}")
-            # Try to publish the error to Redis for the client to see
             if request_id:
                 try:
                     channel = f"chat:response:{request_id}"
                     self.redis_client.publish(channel, f"I encountered an error: {e}{EOS_TOKEN}")
                 except Exception:
                     pass
-
-    # async def handle_user_query(self, message):
-    #     query = message["payload"]["query"]
-    #     print(f"[{self.name}] DEBUG: Handling user query: {query}")
-
-    #     try:
-    #         # Perform RAG process
-    #         print(f"[{self.name}] DEBUG: Getting standalone question...")
-    #         standalone_question = await asyncio.to_thread(get_standalone_question, self.contextualize_q_chain, self.chat_history, query)
-    #         print(f"[{self.name}] DEBUG: Standalone question: {standalone_question}")
-
-    #         print(f"[{self.name}] DEBUG: Retrieving from ChromaDB...")
-    #         scored_chroma_docs = await asyncio.to_thread(retrieve_from_chroma, self.vector_store, standalone_question)
-    #         print(f"[{self.name}] DEBUG: Retrieved {len(scored_chroma_docs)} docs from ChromaDB.")
-
-    #         print(f"[{self.name}] DEBUG: Retrieving from MongoDB...")
-    #         mongo_contexts = await asyncio.to_thread(retrieve_from_mongodb, self.mongo_collection, standalone_question)
-    #         print(f"[{self.name}] DEBUG: Retrieved {len(mongo_contexts)} contexts from MongoDB.")
-
-    #         top_chroma_score = 0.0
-    #         if scored_chroma_docs:
-    #             top_chroma_score = scored_chroma_docs[0][1]
-    #             chroma_docs = [doc for doc, score in scored_chroma_docs]
-    #         else:
-    #             chroma_docs = []
-
-    #         chroma_context_str = format_docs(chroma_docs)
-    #         mongo_context_str = "\n\n".join(mongo_contexts)
-
-    #         combined_context = (
-    #             f"--- PDF Context (Historical) ---\n{chroma_context_str}\n\n"
-    #             f"--- Real-time Data (Live) ---\n{mongo_context_str}"
-    #         )
-
-    #         print(f"[{self.name}] DEBUG: Invoking QA chain...")
-    #         answer = await asyncio.to_thread(self.qa_chain.invoke, {
-    #             "input": query,
-    #             "chat_history": self.chat_history,
-    #             "context": combined_context
-    #         })
-    #         print(f"[{self.name}] DEBUG: QA chain finished.")
-
-    #         # Update chat history
-    #         self.chat_history.append(HumanMessage(content=query))
-    #         self.chat_history.append(AIMessage(content=answer))
-
-    #         # Publish the final answer
-    #         print(f"[{self.name}] DEBUG: Publishing final answer...")
-    #         await self.publish("final_answer", {"answer": answer})
-    #         print(f"[{self.name}] DEBUG: Final answer published.")
-
-    #     except Exception as e:
-    #         print(f"[{self.name}] ERROR in handle_user_query: {e}")
-    #         await self.publish("final_answer", {"answer": "I encountered an error while processing your request. Please try again."})
-
-# >>>>>>> origin/mahima_branch
 
     async def _run_periodic_analysis(self):
         while self.running:
@@ -478,7 +335,7 @@ class IncidentAnalysisAgent(Agent):
                     for alert in alerts:
                         print(f"[{self.name}] Generated Alert: {alert}")
                         await self.publish("safety_alert", {"alert_message": alert})
-            await asyncio.sleep(900) # Run analysis every 15 minutes
+            await asyncio.sleep(ANALYSIS_INTERVAL_SECONDS)
 
     async def _run_periodic_report_generation(self):
         while self.running:
@@ -489,7 +346,7 @@ class IncidentAnalysisAgent(Agent):
                 await self.publish("audit_report_generated", {"report_path": report_path})
             except NotImplementedError as e:
                 print(f"[{self.name}] ERROR in _run_periodic_report_generation: {e}")
-            await asyncio.sleep(86400) # Generate report every 24 hours
+            await asyncio.sleep(REPORT_GENERATION_INTERVAL_SECONDS)
 
     async def run(self):
         asyncio.create_task(self._run_periodic_analysis())

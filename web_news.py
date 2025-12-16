@@ -9,11 +9,25 @@ import time
 
 
 load_dotenv()
-os.environ["TAVILY_API_KEY"] = os.getenv("TAVILY_API_KEY")
-os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
+# Load API keys from environment but avoid assigning None into os.environ
+tavily_key = os.getenv("TAVILY_API_KEY")
+groq_key = os.getenv("GROQ_API_KEY")
 
+if tavily_key:
+    os.environ["TAVILY_API_KEY"] = tavily_key
+else:
+    print("Warning: TAVILY_API_KEY not set. Tavily searches will be disabled.")
 
-client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
+if groq_key:
+    os.environ["GROQ_API_KEY"] = groq_key
+else:
+    print("Warning: GROQ_API_KEY not set. Groq LLM calls may fail.")
+
+# Initialize Tavily client only if key is present
+if tavily_key:
+    client = TavilyClient(api_key=tavily_key)
+else:
+    client = None
 
 
 def tavily_search(query, max_results=10):
@@ -57,7 +71,7 @@ def summarize_text(article_text):
         return "No article content found."
 
     llm = ChatGroq(
-        api_key=os.environ["GROQ_API_KEY"],
+        api_key=groq_key,
         model="llama-3.3-70b-versatile",
         temperature=0.7
     )
@@ -84,7 +98,7 @@ def is_duplicate_article_llm(new_article, existing_articles):
     if not existing_articles:
         return False
     llm = ChatGroq(
-        api_key=os.environ["GROQ_API_KEY"],
+        api_key=groq_key,
         model="llama-3.3-70b-versatile",
         temperature=0
     )
@@ -138,8 +152,8 @@ def get_valid_articles(query, desired_count=1):
                 continue
             seen_urls.add(url)
 
-            print(f"\n📰 Fetching: {title}")
-            print(f"   🔗 URL: {url}")
+            print(f"\nFetching: {title}")
+            print(f"URL: {url}")
 
             article_text = fetch_article_text(url)
             if not article_text:
@@ -175,7 +189,7 @@ def analyze_common_patterns(articles):
         [f"{i+1}. {a['summary']}" for i, a in enumerate(articles)]
     )
     llm = ChatGroq(
-        api_key=os.environ["GROQ_API_KEY"],
+        api_key=groq_key,
         model="llama-3.3-70b-versatile",
         temperature=0.3
     )

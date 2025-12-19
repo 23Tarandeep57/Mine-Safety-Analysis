@@ -108,16 +108,37 @@ def retrieve_from_chroma(vector_store, query):
 
 def retrieve_from_mongodb(collection, query):
     print(f"[DEBUG] Retrieving from MongoDB (Real-time)...")
+    
+    # Use NL2MongoDB translation
+    from utility.tools.query_translator import QueryTranslatorTool
+    translator = QueryTranslatorTool()
+    mongo_query = translator.run_sync(query)
+    
     try:
-        # Try text search first
-        results = list(collection.find(
-            {"$text": {"$search": query}},
-            {"score": {"$meta": "textScore"}}
-        ).sort([("score", {"$meta": "textScore"})]).limit(3))
-
+        results = []
+        
+        if "error" in mongo_query:
+            print(f"[DEBUG] Query translation failed: {mongo_query['error']}. Falling back to text search.")
+            # Fallback to simple text search
+            results = list(collection.find(
+                {"$text": {"$search": query}},
+                {"score": {"$meta": "textScore"}}
+            ).sort([("score", {"$meta": "textScore"})]).limit(3))
+        elif "aggregate" in mongo_query:
+            print(f"[DEBUG] Running aggregation pipeline...")
+            results = list(collection.aggregate(mongo_query["aggregate"]))
+        elif "find" in mongo_query:
+            print(f"[DEBUG] Running find query: {mongo_query['find']}")
+            cursor = collection.find(mongo_query["find"])
+            if "sort" in mongo_query:
+                cursor = cursor.sort(list(mongo_query["sort"].items()))
+            if "limit" in mongo_query:
+                cursor = cursor.limit(mongo_query["limit"])
+            results = list(cursor)
+        
         # If no results and query contains "recent" or "latest", fetch the newest documents
         if not results and any(word in query.lower() for word in ["recent", "latest", "new", "accident"]):
-            print(f"[DEBUG] Text search failed, fetching most recent documents...")
+            print(f"[DEBUG] No results, fetching most recent documents...")
             results = list(collection.find({}).sort("accident_date", -1).limit(3))
             
         if not results:
@@ -126,6 +147,12 @@ def retrieve_from_mongodb(collection, query):
 
         contexts = []
         for doc in results:
+            # Handle aggregation results (which may not have full document structure)
+            if "_id" in doc and isinstance(doc.get("_id"), str):
+                # This is an aggregated result (e.g., grouped by cause)
+                contexts.append(f"Cause: {doc['_id']}, Count: {doc.get('count', 'N/A')}")
+                continue
+            
             # Handle best_practices which might be list of dicts or strings
             best_practices = doc.get('best_practices', [])
             if best_practices and isinstance(best_practices[0], dict):

@@ -13,6 +13,10 @@ def _looks_like_pdf(content_type: str, url: str, content_sniff: bytes) -> bool:
     return content_sniff.startswith(b"%PDF")
 
 
+import pytesseract
+from pdf2image import convert_from_bytes
+from PIL import Image
+
 def _extract_text_from_pdf_bytes(data: bytes) -> str:
     try:
         reader = PdfReader(io.BytesIO(data))
@@ -25,6 +29,23 @@ def _extract_text_from_pdf_bytes(data: bytes) -> str:
             if t:
                 texts.append(t)
         text = "\n".join(texts).strip()
+        
+        # OCR Fallback if text is too short (likely a scanned document)
+        if len(text) < 200:
+            print("PDF contains little selectable text. Attempting OCR fallback...")
+            try:
+                images = convert_from_bytes(data)
+                ocr_texts = []
+                for i, image in enumerate(images):
+                    print(f"  Performing OCR on page {i+1}...")
+                    ocr_text = pytesseract.image_to_string(image)
+                    ocr_texts.append(ocr_text)
+                ocr_result = "\n".join(ocr_texts).strip()
+                if len(ocr_result) > len(text):
+                    return "[OCR Extracted Text]\n" + ocr_result
+            except Exception as ocr_err:
+                print(f"  OCR fallback failed: {ocr_err}")
+        
         if len(text) < 200 and b"%%EOF" not in data:
             return "[Note: PDF appears to be truncated. Extraction may be incomplete.]\n" + text
         if len(text) < 200:

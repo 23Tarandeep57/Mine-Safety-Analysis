@@ -1,17 +1,19 @@
-
 from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
 from utility.config import MONGODB_DB, MONGODB_COLLECTION
 from utility.db import get_mongo_client
+from utility.tools.base import Tool
 
-class CheckIncidentInDBTool:
+class DeduplicatorTool(Tool):
+    """Tool for checking if a similar incident already exists in the database."""
+    
     def __init__(self):
-        self.name = "check_incident_in_db"
-        self.description = "Checks if a similar incident already exists in the database."
+        super().__init__("deduplicator")
         self.client = get_mongo_client()
         self.coll = self.client[MONGODB_DB][MONGODB_COLLECTION]
 
-    def use(self, incident: dict) -> bool:
-        print(f"Checking for existing incident in DB: {incident.get('mine_name', 'N/A')} on {incident.get('incident_date', 'N/A')}")
+    async def run(self, incident: Dict[str, Any]) -> bool:
+        self.log_info(f"Checking for existing incident in DB: {incident.get('mine_name', 'N/A')} on {incident.get('incident_date', 'N/A')}")
         
         query = {}
         location_fields = ["state", "district"]
@@ -32,16 +34,16 @@ class CheckIncidentInDBTool:
                     "$gte": start_date.strftime("%Y-%m-%d"),
                     "$lte": end_date.strftime("%Y-%m-%d")
                 }
-            except (ValueError, TypeError):
-                print(f"Invalid incident date format: {incident_date_str}. Skipping date-based search.")
+            except (ValueError, TypeError) as e:
+                self.log_error(f"Invalid incident date format: {incident_date_str}", error=e)
 
-        if not query: # If no searchable fields are available
+        if not query:
             return False
 
         count = self.coll.count_documents(query)
         if count > 0:
-            print(f"Found {count} similar incidents in the database.")
+            self.log_info(f"Found {count} similar incidents in the database.")
             return True
         else:
-            print("No similar incidents found.")
+            self.log_info("No similar incidents found.")
             return False

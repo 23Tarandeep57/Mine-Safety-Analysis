@@ -1,35 +1,36 @@
 import json
 import re
-from typing import List
+from typing import Any, Dict, List, Optional
 from langchain_core.prompts import PromptTemplate
 from utility.llm import get_llm
+from utility.tools.base import Tool
 
-class GenerateSafetyAlertsTool:
+class AlerterTool(Tool):
+    """Tool for generating actionable safety alerts from analysis reports."""
+    
     def __init__(self):
-        self.name = "generate_safety_alerts"
-        self.description = "Generates actionable safety alerts based on an incident pattern analysis report."
+        super().__init__("alerter")
         self.llm = get_llm()
 
-    def use(self, analysis_report: str) -> List[str]:
-        print("Generating safety alerts...")
+    async def run(self, analysis_report: str) -> List[str]:
+        self.log_info("Generating safety alerts...")
         prompt = self._get_alert_generation_prompt(analysis_report)
         try:
-            resp = self.llm.invoke(prompt)
+            resp = await self.llm.ainvoke(prompt)
             content = resp.content if hasattr(resp, "content") else str(resp)
             
-            # Use a non-greedy regex to find the first JSON array
             match = re.search(r'\[.*?\]', content, re.DOTALL)
             if match:
                 json_str = match.group(0)
                 alerts = json.loads(json_str)
-                print(f"Generated {len(alerts)} safety alerts.")
+                self.log_info(f"Generated {len(alerts)} safety alerts.")
                 return alerts
             else:
-                print("Error: No JSON array found in LLM response.")
+                self.log_error("No JSON array found in LLM response")
                 return ["Error: No JSON array found in LLM response."]
 
         except Exception as e:
-            print(f"Error generating alerts with LLM: {e}")
+            self.log_error("Error generating alerts with LLM", error=e)
             return [f"Error generating alerts: {e}"]
 
     def _get_alert_generation_prompt(self, analysis_report: str) -> str:

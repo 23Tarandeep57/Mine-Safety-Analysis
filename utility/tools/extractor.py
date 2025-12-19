@@ -1,29 +1,30 @@
-
 import json
+from typing import Any, Dict, Optional
 from langchain_core.prompts import PromptTemplate
 from utility.llm import get_llm
+from utility.tools.base import Tool
 
-class ExtractIncidentFromNewsTool:
+class ExtractorTool(Tool):
+    """Tool for extracting structured incident information from news articles."""
+    
     def __init__(self):
-        self.name = "extract_incident_from_news"
-        self.description = "Extracts structured incident information from a news article using an LLM."
+        super().__init__("extractor")
         self.llm = get_llm()
 
-    def use(self, article: dict) -> dict:
-        print(f"Extracting incident from news article: {article.get('title', 'N/A')}")
+    async def run(self, article: Dict[str, Any]) -> Dict[str, Any]:
+        self.log_info(f"Extracting incident from news article: {article.get('title', 'N/A')}")
         prompt = self._get_extraction_prompt(article)
         try:
-            resp = self.llm.invoke(prompt)
+            resp = await self.llm.ainvoke(prompt)
             content = resp.content if hasattr(resp, "content") else str(resp)
             json_str = content.strip().replace("```json", "").replace("```", "")
             extracted_data = json.loads(json_str)
             return extracted_data
         except Exception as e:
-            print(f"Error extracting incident with LLM: {e}")
+            self.log_error(f"Error extracting incident with LLM", error=e)
             return {"error": str(e)}
 
-    def _get_extraction_prompt(self, article: dict) -> str:
-        # Note: The curly braces for the JSON schema are escaped by doubling them (e.g., {{ and }})
+    def _get_extraction_prompt(self, article: Dict[str, Any]) -> str:
         template = """You are an expert at extracting structured information about mining incidents from news articles.
 Extract the following details from the provided news article summary and title. Return ONLY a valid JSON object. The `incident_date` MUST be in YYYY-MM-DD format. If the exact date is not mentioned, return null for the `incident_date` field.
 

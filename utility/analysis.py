@@ -20,6 +20,8 @@ try:
 except Exception:  # pragma: no cover
     get_llm = None  # type: ignore
 
+from .logger import get_logger
+logger = get_logger("utility.analysis")
 
 def parse_iso_dt(s: str) -> Optional[datetime]:
     """Parse YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS into datetime. Return None if invalid."""
@@ -146,13 +148,12 @@ def top_terms_per_cluster(texts: List[str], labels: np.ndarray, top_n: int = 5) 
     return terms
 
 
+from bertopic import BERTopic
+from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance, PartOfSpeech
+
 def make_advanced_report(
     docs: Iterable[Dict[str, Any]],
     months: int = 6,
-    k: int = 5,
-    clustering: str = "kmeans",
-    min_cluster_size: int = 5,
-    min_samples: Optional[int] = None,
 ) -> AdvancedReport:
     filtered, date_range = filter_last_months(docs, months=months)
     total = len(filtered)
@@ -169,37 +170,76 @@ def make_advanced_report(
         text = " | ".join([cause, loc, mineral]).strip(" |")
         texts.append(text if text else "unknown")
 
-    # Embeddings + clustering
-    embeddings = embed_texts(texts)
-    labels = None
-    used_k = None
-    if clustering.lower() == "hdbscan":
-        labels = hdbscan_clusters(
-            embeddings,
-            min_cluster_size=min_cluster_size,
-            min_samples=min_samples,
-            metric="euclidean",
-            cluster_selection_epsilon=0.0,
+    # BERTopic for advanced topic modeling
+    try:
+        representation_model = {
+            "KeyBERT": KeyBERTInspired(),
+            "MMR": MaximalMarginalRelevance(diversity=0.3),
+        }
+        topic_model = BERTopic(
+            embedding_model="all-MiniLM-L6-v2",
+            representation_model=representation_model,
+            min_topic_size=min(5, max(2, total // 10)),
+            verbose=False
         )
-        if labels is None:
-            # Fallback to kmeans if hdbscan not installed
-            clustering = "kmeans"
-    if labels is None:
-        used_k = max(2, min(k, min(10, total)))
-        labels = kmeans_clusters(embeddings, used_k)
+        topics, probs = topic_model.fit_transform(texts)
+        
+        # LLM-based semantic labeling for topics
+        if GROQ_API_KEY and get_llm is not None:
+            try:
+                llm = get_llm()
+                for row in topic_info.itertuples():
+                    if row.Topic == -1: continue
+                    
+                    topic_words = [word for word, _ in topic_model.get_topic(row.Topic)[:10]]
+                    topic_indices = [i for i, t in enumerate(topics) if t == row.Topic]
+                    sample_texts = [texts[i] for i in topic_indices[:3]]
+                    
+                    prompt = (
+                        "You are a mine safety expert. Given the following top keywords and sample incident descriptions "
+                        "for a cluster of accidents, provide a concise, professional label (3-6 words) that summarizes "
+                        "the core safety theme of this cluster.\n\n"
+                        f"Keywords: {', '.join(topic_words)}\n"
+                        f"Samples:\n- " + "\n- ".join(sample_texts) + "\n\n"
+                        "Label:"
+                    )
+                    resp = llm.invoke(prompt)
+                    label = resp.content if hasattr(resp, "content") else str(resp)
+                    topic_model.set_topic_labels({row.Topic: label.strip().strip('"')})
+            except Exception as label_err:
+                logger.error(f"Failed to generate semantic labels: {label_err}")
 
-    # Build cluster list, skipping noise (-1)
-    terms = top_terms_per_cluster(texts, labels, top_n=6)
-
-    # Summaries per cluster
-    clusters = []
-    unique_labels = sorted({int(l) for l in labels if int(l) >= 0})
-    for lab in unique_labels:
-        idxs = [i for i, l in enumerate(labels) if int(l) == lab]
-        sample_causes = [filtered[i].get("incident_details", {}).get("brief_cause", "") or "" for i in idxs[:5]]
-        # terms list is ordered by sorted cluster keys used above; map label index safely
-        terms_map = {lbl: t for lbl, t in zip(unique_labels, terms)} if terms else {}
-        clusters.append(ClusterInsight(label=lab, size=len(idxs), top_terms=terms_map.get(lab, []), sample_causes=sample_causes))
+        clusters = []
+        for row in topic_info.itertuples():
+            if row.Topic == -1: # Skip noise
+                continue
+            
+            # Get sample causes for this topic
+            topic_indices = [i for i, t in enumerate(topics) if t == row.Topic]
+            sample_causes = [filtered[i].get("incident_details", {}).get("brief_cause", "") or "" for i in topic_indices[:5]]
+            
+            # Use custom label if available
+            display_label = topic_model.custom_labels_[row.Topic + 1] if topic_model.custom_labels_ else f"Topic {row.Topic}"
+            
+            clusters.append(ClusterInsight(
+                label=display_label,
+                size=int(row.Count),
+                top_terms=[word for word, _ in topic_model.get_topic(row.Topic)[:6]],
+                sample_causes=sample_causes
+            ))
+    except Exception as e:
+        logger.error(f"BERTopic failed, falling back to basic clustering: {e}")
+        # Fallback to legacy clustering if BERTopic fails
+        embeddings = embed_texts(texts)
+        labels = kmeans_clusters(embeddings, k=min(5, total))
+        terms = top_terms_per_cluster(texts, labels, top_n=6)
+        clusters = []
+        unique_labels = sorted({int(l) for l in labels if int(l) >= 0})
+        for lab in unique_labels:
+            idxs = [i for i, l in enumerate(labels) if int(l) == lab]
+            sample_causes = [filtered[i].get("incident_details", {}).get("brief_cause", "") or "" for i in idxs[:5]]
+            terms_map = {lbl: t for lbl, t in zip(unique_labels, terms)} if terms else {}
+            clusters.append(ClusterInsight(label=lab, size=len(idxs), top_terms=terms_map.get(lab, []), sample_causes=sample_causes))
 
     # Other distributions
     c_state = collections.Counter()

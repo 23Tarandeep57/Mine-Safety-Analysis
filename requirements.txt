@@ -1,40 +1,36 @@
-# Core utilities
-python-dotenv
-requests
-pandas
-Pillow
-pytesseract
+
 beautifulsoup4
-tavily
-pymongo
 certifi
-unstructured[pdf]
-
-# LangChain + Groq integration
-langchain
-langchain-groq
-langchain-google-genai
-langchain-core
-langchain-community 
-langgraph
-
-# Web Framework
+# Core utilities
+datasets
+# Evaluation
 Flask
 Flask-Cors
-
-# Redis for message queue and pub/sub
-redis
-
-# tesseract is a python wrapper
-
+hdbscan==0.8.41
+langchain
+langchain_chromabertopic==0.17.4
+langchain-community 
+langchain-core
+langchain-google-genai
+langchain-groq
+# LangChain + Groq integration
 langchain-text-splitters 
-pypdf 
+langgraph
+pandas
 pdfplumber 
 pillow
-transformers 
-sentence-transformers 
-
-# Evaluation
+Pillow
+pymongo
+pypdf 
+pytesseract
+python-dotenv
 ragas
-datasets
-langchain_chroma
+redis
+# Redis for message queue and pub/sub
+requests
+sentence-transformers 
+tavily
+# tesseract is a python wrapper
+transformers 
+unstructured[pdf]
+# Web Framework

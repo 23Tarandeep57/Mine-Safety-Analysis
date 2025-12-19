@@ -1,305 +1,453 @@
-# 🛡️ MineGuard AI: A Multi-Agent System for Proactive Mine Safety Analysis (CyberLabs IIT-ISM)
+# 🛡️ MineGuard AI: Event-Driven Multi-Agent System for Proactive Mine Safety Analysis
 
 > **An intelligent, autonomous system that transforms unstructured mine safety reports into actionable insights — enabling proactive monitoring, analysis, and prevention of mine accidents in India.**
 
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-Event--Driven-green.svg)](https://langchain.com/langgraph)
+[![BERTopic](https://img.shields.io/badge/BERTopic-Topic%20Modeling-orange.svg)](https://maartengr.github.io/BERTopic/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Database-brightgreen.svg)](https://www.mongodb.com/)
+
 ---
 
-## 🎥 Demo: Workings of Chatbot in Backend
+## 🎥 Demo
 
 https://github.com/user-attachments/assets/a9042710-895c-4cb3-8a0e-6bf1fc35e954
 
 ---
 
-## 🧭 Summary (In Brief)
+## 📋 Table of Contents
 
-**MineGuard AI** automates the entire mine safety intelligence pipeline — from **data collection and structuring** to **semantic enrichment, analysis, and alert generation**.  
-It uses a **multi-agent architecture** with AI-driven reasoning and natural language querying to provide **real-time situational awareness** and **predictive insights** for accident prevention.
-
-**In essence:**  
-> MineGuard AI reads, understands, retrieve and analyzes every mine accident report and generate solutions to prevent accidents — so humans can focus on saving lives, not parsing data.
-
----
-
-## 🧭 Summary
-
-**MineGuard AI** automates the entire mine safety intelligence pipeline — from **data collection and structuring** to **semantic enrichment, analysis, and alert generation**.  
-It uses a **multi-agent architecture** with AI-driven reasoning and natural language querying to provide **real-time situational awareness** and **predictive insights** for accident prevention.
-
-> In essence, MineGuard AI reads, understands, retrieves, and analyzes every mine accident report and generates solutions to prevent accidents — so humans can focus on saving lives, not parsing data.
+- [Overview](#-overview)
+- [Architecture](#-system-architecture)
+- [Technical Deep Dive](#-technical-deep-dive)
+- [Tech Stack](#-tech-stack)
+- [Setup & Installation](#-setup--installation)
+- [API Reference](#-api-reference)
+- [Configuration](#-configuration)
 
 ---
 
-## 🚨 Problem Statement
+## 🧭 Overview
 
-Mine safety remains a **critical challenge** in India, with hundreds of accidents reported every year. Despite continuous reporting by the **Directorate General of Mines Safety (DGMS)** and various media sources, the current data ecosystem faces major challenges:
-
-- 🧾 **Unstructured & Disparate** — Reports are often published as PDFs, HTML tables, or unformatted news articles.  
-- 🧩 **Difficult to Aggregate** — Manual data collection is slow, inconsistent, and error-prone.  
-- 🔍 **Hard to Query** — No unified database exists for trend analysis or real-time insights.
-
-This causes **information latency**, where critical insights that could prevent accidents are buried in fragmented reports and paperwork.
-
----
-
-## 🤖 Solution: MineGuard AI
-
-**MineGuard AI** is a **multi-agent, AI-powered system** that automates the full lifecycle of mine safety data — from ingestion to analysis and conversational access.
+**MineGuard AI** automates the entire mine safety intelligence pipeline — from **data collection and structuring** to **semantic enrichment, analysis, and alert generation**.
 
 ### Key Capabilities
 
-1. **Data Ingestion** — Scrapes DGMS and news reports.  
-2. **Intelligent Structuring** — Converts unstructured text/PDFs into structured JSON data.  
-3. **Data Enrichment** — Maps missing or vague entries to official DGMS codes using AI-powered semantic matching.  
-4. **Conversational Querying** — Enables natural-language interaction for trend analysis, summaries, and Q&A.  
-5. **Accident Pattern Analysis** — Uses historical data to analyze seasonal, temporal, and geographical trends.  
-6. **Proactive Alert Generation** — Monitors new reports to generate early alerts for high-risk patterns.  
-
-This transforms a **reactive** manual process into a **proactive**, AI-powered safety intelligence ecosystem.
+| Capability | Description |
+|------------|-------------|
+| **Data Ingestion** | Scrapes DGMS and news reports with OCR fallback for scanned PDFs |
+| **Intelligent Structuring** | Converts unstructured text/PDFs into structured JSON using LLM extraction |
+| **NL2MongoDB Query Translation** | Converts natural language questions into MongoDB queries |
+| **Advanced Topic Modeling** | Uses BERTopic (SentenceTransformers + UMAP + HDBSCAN) for pattern discovery |
+| **LLM-Powered Semantic Labeling** | Automatically generates professional labels for discovered incident clusters |
+| **Event-Driven Pipeline** | LangGraph orchestrates the incident lifecycle with conditional routing |
 
 ---
 
 ## 🧠 System Architecture
 
-MineGuard AI follows a **multi-agent architecture**, where specialized agents communicate asynchronously through a **Message Bus**, coordinated by the **IncidentAnalysisAgent**.
+MineGuard AI follows an **event-driven multi-agent architecture** powered by **LangGraph**, where specialized agents communicate asynchronously through a **Message Bus**.
 
-### ⚙️ Core Components
+```mermaid
+graph TD
+    subgraph "Data Sources"
+        DGMS[DGMS Website]
+        NEWS[News Articles]
+    end
 
-| Component | Role |
-|------------|------|
-| 🕵️‍♂️ **DGMSMonitorAgent** | Collects reports from the official DGMS website |
-| ⚙️ **NewsScannerAgent** | Collects and publishes incident data from official and media sources |
-| 🧩 **IncidentAnalysisAgent** | Parses, enriches, and analyzes incident data using AI; acts as the system’s control center |
-| 💬 **ConversationalAgent** | Handles user queries using RAG (Retrieval-Augmented Generation) |
-| 📊 **AccidentAnalysisModule** | Performs seasonal, temporal, and cause-based accident trend analysis |
-| 🚨 **AlertGenerator** | Detects high-risk patterns and generates alerts |
-| 🗃️ **MongoDB** | Stores structured incident data |
-| 🧠 **ChromaDB** | Handles vector embeddings and semantic search for cause-code mapping |
+    subgraph "Scanning Agents"
+        DGMSAgent[DGMSMonitorAgent]
+        NewsAgent[NewsScannerAgent]
+    end
 
-All agents interact with each other using **A2A protocol**, with the **IncidentAnalysisAgent** as the control center.
+    subgraph "LangGraph Orchestrator"
+        Extract[Extract Node]
+        Dedupe[Deduplicate Node]
+        Enrich[Enrich Node]
+        Store[Store Node]
+        Analyze[Analyze Node]
+        Alert[Alert Node]
+    end
+
+    subgraph "Data Stores"
+        MongoDB[(MongoDB)]
+        ChromaDB[(ChromaDB)]
+        Redis[(Redis Pub/Sub)]
+    end
+
+    subgraph "User Interface"
+        Flask[Flask API]
+        React[React Frontend]
+    end
+
+    DGMS --> DGMSAgent
+    NEWS --> NewsAgent
+    DGMSAgent --> Extract
+    NewsAgent --> Extract
+    Extract --> Dedupe
+    Dedupe -->|New| Enrich
+    Dedupe -->|Duplicate| END[END]
+    Enrich --> Store
+    Store --> Analyze
+    Analyze --> Alert
+    Store --> MongoDB
+    Alert --> Redis
+    MongoDB --> Flask
+    ChromaDB --> Flask
+    Flask --> React
+```
+
+### LangGraph Pipeline Nodes
+
+| Node | Tool | Description |
+|------|------|-------------|
+| `extract` | `ExtractorTool` | Uses LLM to extract structured incident data from raw text |
+| `deduplicate` | `DeduplicatorTool` | Queries MongoDB to check for existing similar incidents |
+| `enrich` | `EnricherTool` | Adds cause codes and location data via heuristics + web search |
+| `store` | `StorageTool` | Persists enriched incident to MongoDB |
+| `analyze` | `AnalyzerTool` | Runs BERTopic clustering on all incidents |
+| `alert` | `AlerterTool` | Generates safety alerts from analysis report |
+
+### Multi-Agent Event Communication
+
+All agents are connected via a **Message Bus** with event-driven pub/sub:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                           MESSAGE BUS                                │
+├──────────────────────────────────────────────────────────────────────┤
+│  DGMSMonitor ──new_dgms_report──► LangGraph ◄──new_news_article── NewsScanner
+│       │                          Orchestrator                           │
+│       │                              │                                  │
+│       │         ┌────────────────────┴────────────────────┐             │
+│       │         │  EVENTS: incident_stored, safety_alert, │             │
+│       │         │  pipeline_complete, request_verification│             │
+│       │         └────────────────────┬────────────────────┘             │
+│       │                              ▼                                  │
+│       │                    ConversationalAgent ──► Frontend             │
+│       │                      (via Redis pub/sub)                        │
+│       ◄──news_verification_results───────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+| Event | Publisher | Subscribers |
+|-------|-----------|-------------|
+| `new_dgms_report` | DGMSMonitorAgent | IncidentAnalysisAgent |
+| `new_news_article` | NewsScannerAgent | IncidentAnalysisAgent |
+| `incident_stored` | Orchestrator | IncidentAnalysisAgent, DGMSMonitorAgent, ConversationalAgent |
+| `safety_alert` | Orchestrator | IncidentAnalysisAgent, ConversationalAgent |
+| `request_news_verification` | Orchestrator | NewsScannerAgent |
+| `news_verification_results` | NewsScannerAgent | DGMSMonitorAgent, ConversationalAgent |
+| `pipeline_complete` | Orchestrator | IncidentAnalysisAgent, ConversationalAgent |
 
 ---
 
-## ⚡ Technical Highlights
+## ⚡ Technical Deep Dive
 
-### 1. AI-Powered Cause Code Mapping
-Automatically maps free-text causes like  
-> “Landslide” to the official DGMS code  
-> **0118 — Landslide**
+### 1. LangGraph Event-Driven Orchestration
 
-**How it Works**
-- DGMS cause-code descriptions → stored as embeddings in **ChromaDB**  
-- Incident cause text → converted into vector embeddings  
-- Semantic similarity → retrieves and assigns most relevant DGMS code  
+The system uses **LangGraph's StateGraph** to manage the incident processing lifecycle:
 
-✅ *Context-aware, consistent, and automatic classification.*
+```python
+# utility/langgraph_orchestrator.py
+class IncidentState(TypedDict):
+    raw_data: Dict[str, Any]
+    source: str  # 'dgms' or 'news'
+    extracted_incident: Optional[Dict[str, Any]]
+    is_duplicate: bool
+    enriched_data: Optional[Dict[str, Any]]
+    analysis_results: Optional[str]
+    alerts: List[str]
+    errors: List[str]
+```
 
----
-
-### 2. Retrieval-Augmented Generation (RAG)
-
-Provides **factually grounded** Q&A through RAG pipelines:
-
-1. User query → contextualized by the **ConversationalAgent**  
-2. Relevant context → retrieved from **MongoDB** + **ChromaDB**  
-3. Context + Query → fused into an **LLM prompt**  
-4. Model → generates grounded, verifiable responses  
-
-💡 *Ensures explainable, data-backed responses directly from verified records.*
-
----
-
-### 3. Accident Pattern Analysis
-Provides insights into:
-- ⏳ **Temporal Trends**
-- 🌦️ **Seasonal Correlations**
-- 📍 **Geographical Hotspots**
-- ⚙️ **Cause Distribution**
-
-🧩 *Also generates preventive recommendations using historical data.*
+**Conditional Routing:** The pipeline automatically stops if a duplicate is detected:
+```python
+self.builder.add_conditional_edges(
+    "deduplicate",
+    self.should_continue,
+    {"continue": "enrich", "stop": END}
+)
+```
 
 ---
 
-### 4. Proactive Alert Generation
-Monitors new incidents for:
-- Repeated accidents of the same type  
-- Seasonal spikes  
-- Regional anomalies  
+### 2. NL2MongoDB Query Translation
 
-⚠️ When thresholds are exceeded, **alerts** are generated and stored for dashboards or notifications.
+Natural language queries are converted to MongoDB queries using an LLM:
+
+```python
+# Example translations:
+"accidents in Jharkhand in 2024"
+→ {"find": {"mine_details.state": {"$regex": "jharkhand", "$options": "i"}, 
+            "accident_date": {"$gte": "2024-01-01"}}}
+
+"top 5 causes of fatalities"
+→ {"aggregate": [{"$group": {"_id": "$incident_details.brief_cause", "count": {"$sum": 1}}},
+                 {"$sort": {"count": -1}}, {"$limit": 5}]}
+```
+
+**Implementation:** `utility/tools/query_translator.py`
 
 ---
 
-### 5. Asynchronous Multi-Agent System
-All agents run concurrently via **asyncio**, offering:
-- Real-time updates  
-- Fault-tolerant operation  
-- Scalable architecture  
+### 3. BERTopic Advanced Topic Modeling
+
+The analysis module uses **BERTopic** for unsupervised discovery of incident patterns:
+
+```python
+# utility/analysis.py
+from bertopic import BERTopic
+from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance
+
+topic_model = BERTopic(
+    embedding_model="all-MiniLM-L6-v2",
+    representation_model={
+        "KeyBERT": KeyBERTInspired(),
+        "MMR": MaximalMarginalRelevance(diversity=0.3),
+    },
+    min_topic_size=min(5, max(2, total // 10)),
+)
+topics, probs = topic_model.fit_transform(texts)
+```
+
+**LLM Semantic Labeling:** Topics are automatically labeled by an LLM:
+```
+Topic 0: "Underground Roof Collapse Hazards"
+Topic 1: "Haul Road Transportation Accidents"
+Topic 2: "Electrocution in Open-Cast Mines"
+```
+
+---
+
+### 4. OCR Fallback for Scanned PDFs
+
+When PDFs contain no selectable text (scanned documents), **PyTesseract** is used:
+
+```python
+# utility/extract.py
+from pdf2image import convert_from_bytes
+import pytesseract
+
+if len(text) < 200:  # Likely a scanned PDF
+    images = convert_from_bytes(data)
+    ocr_texts = [pytesseract.image_to_string(img) for img in images]
+    return "[OCR Extracted Text]\n" + "\n".join(ocr_texts)
+```
+
+**System Requirements:** `tesseract-ocr`, `poppler-utils`
+
+---
+
+### 5. Structured JSON Logging
+
+All components use centralized JSON logging for observability:
+
+```python
+# utility/logger.py
+{"timestamp": "2024-12-19T10:00:00Z", "level": "INFO", 
+ "name": "langgraph.orchestrator", "message": "Node: extract", 
+ "extra": {"source": "news"}}
+```
+
+---
+
+### 6. Retrieval-Augmented Generation (RAG)
+
+The chatbot combines multiple context sources:
+
+| Source | Description |
+|--------|-------------|
+| **ChromaDB** | Historical PDF reports (embeddings) |
+| **MongoDB** | Real-time structured incident data |
+| **NL2MongoDB** | Dynamically generated queries for precise retrieval |
+
+```python
+combined_context = (
+    f"--- PDF Context (Historical) ---\n{chroma_context}\n\n"
+    f"--- Real-time Data (Live) ---\n{mongo_context}"
+)
+```
 
 ---
 
 ## 🧰 Tech Stack
 
-| Layer | Tools & Technologies |
-|-------|----------------------|
-| **Backend** | Python, Flask, asyncio |
-| **AI/ML** | LangChain, Google Generative AI |
-| **Databases** | MongoDB (Primary), ChromaDB (Vector Store) |
-| **Data Processing** | PyPDF, BeautifulSoup, Pandas |
-
-| **Architecture** | Custom Asynchronous Multi-Agent System |
+| Layer | Technologies |
+|-------|-------------|
+| **Backend** | Python 3.12, Flask, asyncio |
+| **AI/ML** | LangChain, LangGraph, GROQ (Llama), Google Generative AI |
+| **Topic Modeling** | BERTopic, SentenceTransformers, HDBSCAN, UMAP |
+| **OCR** | PyTesseract, pdf2image, Poppler |
+| **Databases** | MongoDB (incidents), ChromaDB (vectors), Redis (pub/sub) |
+| **Frontend** | React, Vite, TailwindCSS |
 
 ---
 
 ## 🚀 Setup & Installation
 
-### 🐳 Option 1: Docker (Recommended)
+### Prerequisites
 
-The easiest way to run the entire stack with all dependencies:
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| Python | 3.12+ | Runtime |
+| Node.js | 18+ | Frontend |
+| MongoDB | 6.0+ | Incident storage |
+| Redis | 7.0+ | Message queue |
+| Tesseract | 5.0+ | OCR (optional) |
+| Poppler | - | PDF to image conversion |
+
+### Environment Variables
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
-cd Mine-Safety-Analysis
+# Required
+GROQ_API_KEY=your_groq_api_key          # LLM (Llama via GROQ)
+GOOGLE_API_KEY=your_google_api_key      # Embeddings (Google Generative AI)
+MONGODB_URI=mongodb://localhost:27017   # MongoDB connection
 
-# 2. Configure environment variables
-cp .env.example .env
-# Edit .env and add your API keys:
-# - GROQ_API_KEY (Required for LLM)
-# - GOOGLE_API_KEY (Required for Embeddings)
-# - TAVILY_API_KEY (Optional, for web search)
-
-# 3. Start all services
-docker-compose up --build
-
-# 4. Access the application
-# Frontend:  http://localhost:5173
-# API:       http://localhost:5001
-# MongoDB:   localhost:27017
-# Redis:     localhost:6379
+# Optional
+TAVILY_API_KEY=your_tavily_key          # Web search for enrichment
+REDIS_URL=redis://localhost:6379        # Redis connection
 ```
 
-**Docker Services:**
+### 🐳 Docker (Recommended)
+
+```bash
+git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
+cd Mine-Safety-Analysis
+cp .env.example .env
+# Edit .env with your API keys
+docker-compose up --build
+```
+
 | Service | Port | Description |
 |---------|------|-------------|
 | `frontend` | 5173 | React web interface |
 | `flask` | 5001 | REST API server |
-| `agent` | - | Multi-agent background worker |
+| `agent` | - | LangGraph multi-agent worker |
 | `redis` | 6379 | Message queue & pub/sub |
 | `mongo` | 27017 | Incident database |
 
-**Useful Docker Commands:**
-```bash
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f flask agent
-
-# Rebuild after code changes
-docker-compose up --build
-
-# Reset databases (WARNING: deletes data)
-docker-compose down -v
-```
-
----
-
-### 🔧 Option 2: Manual Setup (Development)
-
-#### Prerequisites
-
-- Python **3.11+** (Recommended: 3.12)
-- **Node.js 18+**
-- **MongoDB** (Local or MongoDB Atlas)
-- **Redis** (Local or Redis Cloud)
-- `git` installed
-
-#### Backend Setup
+### 🔧 Manual Setup
 
 ```bash
-# 1. Clone the repository
+# 1. Clone and setup
 git clone https://github.com/23Tarandeep57/Mine-Safety-Analysis.git
 cd Mine-Safety-Analysis
-
-# 2. Create and activate virtual environment
 python3.12 -m venv venv
-source venv/bin/activate   # (Linux/Mac)
-venv\Scripts\activate      # (Windows)
-
-# 3. Install dependencies
+source venv/bin/activate
 pip install -r requirements.txt
 
-# 4. Configure environment variables
-cp .env.example .env
-# Edit .env to include MongoDB URI, Redis URL, and API keys (GROQ, GOOGLE, TAVILY)
+# 2. Install OCR dependencies (Linux)
+sudo apt install tesseract-ocr poppler-utils
 
-# 5. Start Redis (if not running)
-# You can use Docker for dependencies:
+# 3. Start dependencies
 docker-compose up -d redis mongo
 
-# 6. Run the Flask API server (Terminal 1)
-python app.py
-
-# 7. Run the Multi-Agent System (Terminal 2)
-python agent.py
+# 4. Run services (3 terminals)
+python app.py       # Terminal 1: Flask API
+python agent.py     # Terminal 2: LangGraph Agent
+cd Front-end/MSA && npm install && npm run dev  # Terminal 3: Frontend
 ```
 
 ---
 
-## 🖥️ Frontend Setup
+## 📡 API Reference
 
-The web interface is built with **React + Vite** and provides:
-- 💬 **AI Chatbot** with real-time streaming responses
-- 📊 **Incident Analysis Dashboard** with YoY trends
-- 🚨 **Safety Alerts Viewer** with severity indicators
+### Chat Endpoint
 
-### 📋 Prerequisites
+```http
+POST /api/chat
+Content-Type: application/json
 
-- **Node.js 18+** (Download: https://nodejs.org/)
-- **npm** or **yarn**
-
-### 🔧 Frontend Installation
-
-```bash
-# 1. Navigate to frontend directory
-cd Front-end/MSA
-
-# 2. Install dependencies
-npm install
-
-# 3. Start development server
-npm run dev
+{"query": "What are the top causes of accidents in Jharkhand?"}
 ```
 
-The frontend will start at: **http://localhost:5173**
+**Response:** Server-Sent Events (SSE) stream with real-time tokens.
 
-### 🌐 API Configuration
+### Health Check
 
-The frontend connects to the Flask backend at `http://127.0.0.1:5001/api`.  
-If your backend runs on a different port, update the API URL in:
-
-```
-Front-end/MSA/src/utils/chatApi.js
+```http
+GET /api/health
 ```
 
-### 📦 Build for Production
+---
 
-```bash
-# Build optimized production bundle
-npm run build
+## ⚙️ Configuration
 
-# Preview production build locally
-npm run preview
+### Key Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `utility/config.py` | Environment variables and defaults |
+| `docker-compose.yml` | Docker service definitions |
+| `.env` | API keys and secrets |
+| `schema.md` | MongoDB document schema |
+
+### MongoDB Schema
+
+```json
+{
+  "accident_date": "2024-07-23",
+  "mine_details": {
+    "name": "Gevra Opencast Mine",
+    "state": "Chhattisgarh",
+    "district": "Korba",
+    "mineral": "Coal"
+  },
+  "incident_details": {
+    "brief_cause": "Worker hit by dumper on haul road",
+    "cause_code": "3.2 - Dumper",
+    "fatalities": [{"name": "...", "age": 25}]
+  },
+  "verification": {
+    "status": "verified",
+    "articles": ["https://..."]
+  }
+}
 ```
 
-### 🔄 Running the Full Stack
+---
 
-Open **3 terminals** and run:
+## 📁 Project Structure
 
-| Terminal | Command | Purpose |
-|----------|---------|---------|
-| **Terminal 1** | `python app.py` | Flask API Server (port 5001) |
-| **Terminal 2** | `python agent.py` | Multi-Agent System |
-| **Terminal 3** | `cd Front-end/MSA && npm run dev` | React Frontend (port 5173) |
+```
+Mine-Safety-Analysis/
+├── agents/                      # Agent implementations
+│   ├── incident_analysis_agent.py  # LangGraph orchestrator consumer
+│   ├── news_scanner_agent.py       # News scraping
+│   └── dgms_monitor_agent.py       # DGMS scraping
+├── utility/
+│   ├── langgraph_orchestrator.py   # LangGraph StateGraph pipeline
+│   ├── analysis.py                 # BERTopic clustering
+│   ├── chatbot_utils.py            # RAG retrieval logic
+│   ├── logger.py                   # JSON structured logging
+│   └── tools/                      # Modular tool implementations
+│       ├── base.py                 # Tool base class
+│       ├── extractor.py            # LLM extraction
+│       ├── deduplicator.py         # MongoDB duplicate check
+│       ├── enricher.py             # Location/cause enrichment
+│       ├── storage.py              # MongoDB persistence
+│       ├── analyzer.py             # BERTopic analysis
+│       ├── alerter.py              # LLM alert generation
+│       └── query_translator.py     # NL2MongoDB
+├── app.py                       # Flask API server
+├── agent.py                     # Multi-agent entrypoint
+├── Front-end/MSA/               # React frontend
+└── docker-compose.yml           # Docker orchestration
+```
 
-Then open **http://localhost:5173** in your browser.
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **DGMS India** for public mine safety data
+- **LangChain** for the agent framework
+- **BERTopic** for topic modeling
+- **GROQ** for fast LLM inference

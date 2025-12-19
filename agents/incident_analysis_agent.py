@@ -1,16 +1,13 @@
 import asyncio
-import json
 import redis
-import traceback
-from typing import Literal, TypedDict, List, Dict, Any, Optional
-from datetime import datetime, timezone
+from typing import List, Dict, Any
+from langchain_core.messages import HumanMessage, AIMessage
 
 from utility.agent_framework import Agent
-from utility.config import REDIS_URL, ANALYSIS_INTERVAL_SECONDS, REPORT_GENERATION_INTERVAL_SECONDS, DATA_DIR
+from utility.config import REDIS_URL
 from utility.chatbot_utils import get_standalone_question, retrieve_from_chroma, retrieve_from_mongodb, format_docs
 from utility.langgraph_orchestrator import LangGraphOrchestrator
 from utility.logger import get_logger
-from langchain_core.messages import HumanMessage, AIMessage
 
 logger = get_logger("agents.incident_analysis")
 EOS_TOKEN = "<EOS>"
@@ -18,11 +15,18 @@ EOS_TOKEN = "<EOS>"
 class IncidentAnalysisAgent(Agent):
     def __init__(self, name, message_bus, google_web_search_func, llm, vector_store, mongo_collection, contextualize_q_chain, qa_chain):
         super().__init__(name, message_bus)
-        self.orchestrator = LangGraphOrchestrator()
+        # Pass message_bus to orchestrator for event publishing
+        self.orchestrator = LangGraphOrchestrator(message_bus=message_bus)
         
+        # Subscribe to incoming data
         self.subscribe("new_news_article", self.handle_news_article)
         self.subscribe("new_dgms_report", self.handle_dgms_report)
         self.subscribe("user_query", self.handle_user_query)
+        
+        # Subscribe to pipeline events for logging/monitoring
+        self.subscribe("incident_stored", self.handle_incident_stored)
+        self.subscribe("safety_alert", self.handle_safety_alert)
+        self.subscribe("pipeline_complete", self.handle_pipeline_complete)
         
         # Chatbot components
         self.llm = llm
@@ -40,24 +44,40 @@ class IncidentAnalysisAgent(Agent):
             await self.orchestrator.run_pipeline(
                 initial_data=article,
                 source="news",
-                source_url=article.get("link", ""),
+                source_url=article.get("url", article.get("link", "")),
                 raw_title=article.get("title", "")
             )
         except Exception as e:
-            logger.error(f"Error processing news article in LangGraph: {e}")
+            logger.error(f"Error processing news article: {e}")
 
     async def handle_dgms_report(self, message):
         report = message["payload"]
-        logger.info(f"Received DGMS report: {report.get('title')}")
+        logger.info(f"Received DGMS report: {report.get('title', report.get('report_id'))}")
         try:
             await self.orchestrator.run_pipeline(
                 initial_data=report,
                 source="dgms",
-                source_url=report.get("link", ""),
+                source_url=report.get("url", report.get("link", "")),
                 raw_title=report.get("title", "")
             )
         except Exception as e:
-            logger.error(f"Error processing DGMS report in LangGraph: {e}")
+            logger.error(f"Error processing DGMS report: {e}")
+
+    async def handle_incident_stored(self, message):
+        """React to incident being stored."""
+        payload = message["payload"]
+        logger.info(f"Incident stored: {payload.get('mine_name')} (ID: {payload.get('id')})")
+
+    async def handle_safety_alert(self, message):
+        """React to safety alerts - could push to notification system."""
+        payload = message["payload"]
+        logger.warning(f"SAFETY ALERT: {payload.get('alert')}")
+        # Could add Slack, email, or push notification here
+
+    async def handle_pipeline_complete(self, message):
+        """React to pipeline completion."""
+        payload = message["payload"]
+        logger.info(f"Pipeline complete for: {payload.get('title')} | Alerts: {payload.get('alerts_count')}")
 
     async def handle_user_query(self, message):
         query = message["payload"]["query"]
@@ -131,8 +151,5 @@ class IncidentAnalysisAgent(Agent):
         return full_answer
 
     async def run(self):
-        # The orchestrator handles periodic analysis now if we want, 
-        # or we can keep it here but calling the orchestrator nodes.
-        # For now, let's just keep the agent alive.
         while self.running:
             await asyncio.sleep(1)

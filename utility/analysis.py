@@ -3,7 +3,7 @@ from __future__ import annotations
 import collections
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 from sklearn.cluster import KMeans
@@ -60,7 +60,7 @@ def time_of_day_bucket(dt: Optional[datetime]) -> str:
 
 @dataclass
 class ClusterInsight:
-    label: int
+    label: Union[int, str]  # Can be int (topic ID) or str (semantic label)
     size: int
     top_terms: List[str]
     sample_causes: List[str]
@@ -183,6 +183,9 @@ def make_advanced_report(
             verbose=False
         )
         topics, probs = topic_model.fit_transform(texts)
+        
+        # Get topic info for iteration
+        topic_info = topic_model.get_topic_info()
         
         # LLM-based semantic labeling for topics
         if GROQ_API_KEY and get_llm is not None:
